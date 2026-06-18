@@ -45,6 +45,8 @@ dependencies:
   crypto: ^3.0.5
   # 一時ファイルパス取得
   path: ^1.9.0
+  # 転送履歴の保存（Step 3：送信済み管理・重複防止）
+  sqflite: ^2.3.3+1
 
 dev_dependencies:
   flutter_test:

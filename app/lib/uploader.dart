@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
@@ -23,6 +24,20 @@ class Uploader {
           .get(Uri.parse('${server.baseUrl}/ping'))
           .timeout(const Duration(seconds: 5));
       return res.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// サーバー側に同一内容（SHA256）のファイルが既に存在するか確認する。
+  Future<bool> exists(String sha256) async {
+    try {
+      final res = await http
+          .get(Uri.parse('${server.baseUrl}/exists?hash=$sha256'))
+          .timeout(const Duration(seconds: 10));
+      if (res.statusCode != 200) return false;
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      return body['exists'] == true;
     } catch (_) {
       return false;
     }
