@@ -191,6 +191,19 @@ Motorola Edge 50 Pro（メイン端末・持ち歩き）
 
 Pixel側にDBは持たない（MVP時点）。ファイルの実在確認は `GET /exists?hash=xxxx` で行う。
 
+### サーバー側ハッシュ索引（クイックシェア重複の検出）
+
+過去にクイックシェアでPixelへ送ったファイルも「送信済み」として扱えるよう、
+サーバーは起動時に対象フォルダを走査してSHA256の索引（メモリ）を構築する。
+
+- 照合対象フォルダ（既定）：`/sdcard/MediaRelay`、`/sdcard/Download/Quick Share`、`/sdcard/Download`
+  - クイックシェアの受信先は現在 `Download/Quick Share/`（以前は `Download/` 直下）
+  - 環境変数 `SCAN_DIRS`（`:` 区切り）で変更可能
+- `GET /exists?hash=` は索引を引いて高速に判定（初回呼び出し時のみ索引構築を待つ）
+- `POST /upload` 時は索引へ差分追加
+- `POST /reindex` で索引を再構築（新規にクイックシェア受信したファイルを取り込む）
+- アプリは一括送信の前に `/reindex` を呼び、既にPixelにある内容は**アップロードせずスキップ＋送信済み登録**する
+
 ## 技術スタック
 
 | 役割 | 技術 |

@@ -59,7 +59,26 @@ chmod +x ~/.termux/boot/start-media-relay.sh
 |---|---|---|
 | GET | `/ping` | サーバー死活確認 |
 | POST | `/upload` | ファイルアップロード |
-| GET | `/exists?hash=<sha256>` | ファイル存在確認 |
+| GET | `/exists?hash=<sha256>` | ファイル存在確認（ハッシュ索引で照合） |
+| POST | `/reindex` | ハッシュ索引を再構築（クイックシェア新規受信を取り込む） |
+
+### 重複判定とクイックシェア照合（SCAN_DIRS）
+
+`/exists` は対象フォルダ配下のSHA256索引（メモリ）で判定する。クイックシェアで
+既にPixelへ送ったファイルも検出できるよう、既定で以下を走査する：
+
+- `/sdcard/MediaRelay`
+- `/sdcard/Download/Quick Share`（クイックシェアの現在の受信先）
+- `/sdcard/Download`
+
+変更したい場合は環境変数で指定（`:` 区切り）：
+
+```bash
+SCAN_DIRS="/sdcard/MediaRelay:/sdcard/Download/Quick Share" node index.js
+```
+
+起動直後にバックグラウンドで索引を構築する（ファイル数が多いと数十秒〜かかる）。
+新たにクイックシェア受信したら `POST /reindex` で取り込む。
 
 ### POST /upload
 ```

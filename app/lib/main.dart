@@ -167,6 +167,11 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
+    // クイックシェアで受信済みのファイルも検出できるよう、
+    // 送信前にサーバーのハッシュ索引を最新化しておく。
+    setState(() => _status = 'Pixel側を照合準備中…（初回は時間がかかります）');
+    await uploader.reindex();
+
     int done = 0;
     int skipped = 0;
     int failed = 0;

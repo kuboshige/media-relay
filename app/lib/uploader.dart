@@ -30,16 +30,33 @@ class Uploader {
   }
 
   /// サーバー側に同一内容（SHA256）のファイルが既に存在するか確認する。
+  /// サーバーは初回呼び出し時に対象フォルダのハッシュ索引を構築するため、
+  /// 最初の1回は時間がかかる可能性がある（タイムアウトを長めに取る）。
   Future<bool> exists(String sha256) async {
     try {
       final res = await http
           .get(Uri.parse('${server.baseUrl}/exists?hash=$sha256'))
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 180));
       if (res.statusCode != 200) return false;
       final body = jsonDecode(res.body) as Map<String, dynamic>;
       return body['exists'] == true;
     } catch (_) {
       return false;
+    }
+  }
+
+  /// サーバーのハッシュ索引を再構築させる（クイックシェアの新規受信分を取り込む）。
+  /// 構築できた件数を返す。失敗時は null。
+  Future<int?> reindex() async {
+    try {
+      final res = await http
+          .post(Uri.parse('${server.baseUrl}/reindex'))
+          .timeout(const Duration(minutes: 10));
+      if (res.statusCode != 200) return null;
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      return (body['count'] as num?)?.toInt();
+    } catch (_) {
+      return null;
     }
   }
 
