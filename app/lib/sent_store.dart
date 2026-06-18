@@ -32,7 +32,53 @@ class SentStore {
             'CREATE INDEX idx_sent_sha256 ON sent_files(sha256)');
       },
     );
+    // 送信ログ（毎回の結果を残す）。マイグレーション不要にするため都度作成。
+    await _db!.execute('''
+      CREATE TABLE IF NOT EXISTS transfer_log(
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        asset_id      TEXT,
+        title         TEXT,
+        relative_path TEXT,
+        status        TEXT,
+        detail        TEXT,
+        size          INTEGER,
+        at            INTEGER
+      )
+    ''');
     return _db!;
+  }
+
+  /// 送信結果を1件ログに残す（status: sent / skipped / failed）。
+  static Future<void> log({
+    required String assetId,
+    required String title,
+    required String relativePath,
+    required String status,
+    String? detail,
+    int? size,
+  }) async {
+    final db = await _open();
+    await db.insert('transfer_log', {
+      'asset_id': assetId,
+      'title': title,
+      'relative_path': relativePath,
+      'status': status,
+      'detail': detail,
+      'size': size,
+      'at': DateTime.now().millisecondsSinceEpoch,
+    });
+  }
+
+  /// 直近の送信ログ（新しい順）。
+  static Future<List<Map<String, Object?>>> recentLogs({int limit = 500}) async {
+    final db = await _open();
+    return db.query('transfer_log', orderBy: 'at DESC', limit: limit);
+  }
+
+  /// 送信ログを全消去する。
+  static Future<void> clearLogs() async {
+    final db = await _open();
+    await db.delete('transfer_log');
   }
 
   /// 送信済み（status = sent）の asset_id 集合。

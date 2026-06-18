@@ -47,6 +47,8 @@ dependencies:
   path: ^1.9.0
   # 転送履歴の保存（Step 3：送信済み管理・重複防止）
   sqflite: ^2.3.3+1
+  # 送信中に画面を消さない（スリープで転送が止まるのを防ぐ）
+  wakelock_plus: ^1.2.8
 
 dev_dependencies:
   flutter_test:

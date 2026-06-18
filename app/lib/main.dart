@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import 'media_source.dart';
 import 'server_config.dart';
 import 'uploader.dart';
@@ -9,6 +10,7 @@ import 'settings_page.dart';
 import 'folder_config.dart';
 import 'folder_select_page.dart';
 import 'sent_store.dart';
+import 'history_page.dart';
 
 void main() {
   runApp(const MediaRelayApp());
@@ -47,6 +49,8 @@ class _HomePageState extends State<HomePage> {
   List<ServerEntry> _servers = [];
   int _selectedServer = 0;
   String? _status;
+  String? _lastResult; // 直近の送信結果（消えずに残す）
+  int? _freeBytes; // Pixelの空き容量
 
   @override
   void initState() {
@@ -69,6 +73,15 @@ class _HomePageState extends State<HomePage> {
     }
     await _reloadMedia();
     setState(() => _loading = false);
+    _refreshFreeSpace();
+  }
+
+  Future<void> _refreshFreeSpace() async {
+    final server = _currentServer;
+    if (server == null) return;
+    final si = await Uploader(server).info();
+    if (!mounted) return;
+    setState(() => _freeBytes = si?.freeBytes);
   }
 
   Future<void> _reloadMedia() async {
@@ -167,71 +180,122 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
-    // クイックシェアで受信済みのファイルも検出できるよう、
-    // 送信前にサーバーのハッシュ索引を最新化しておく。
-    setState(() => _status = 'Pixel側を照合準備中…（初回は時間がかかります）');
-    await uploader.reindex();
-
     int done = 0;
     int skipped = 0;
     int failed = 0;
-    for (var i = 0; i < targets.length; i++) {
-      final item = targets[i];
-      setState(() =>
-          _status = '送信中 ${i + 1}/${targets.length}: ${item.title}');
+    var stoppedForStorage = false;
 
-      final file = await item.originFile();
-      if (file == null) {
-        failed++;
-        continue;
-      }
+    // 送信中は画面を消さない（スリープで止まるのを防ぐ）
+    await WakelockPlus.enable();
+    try {
+      // クイックシェアで受信済みのファイルも検出できるよう、
+      // 送信前にサーバーのハッシュ索引を最新化しておく。
+      setState(() => _status = 'Pixel側を照合準備中…（初回は時間がかかります）');
+      await uploader.reindex();
 
-      // 内容ハッシュを計算し、サーバーに既にあれば送らずに済ます
-      String? hash;
-      try {
-        hash = await _sha256OfFile(file);
-      } catch (_) {
-        hash = null;
-      }
+      for (var i = 0; i < targets.length; i++) {
+        final item = targets[i];
+        setState(() =>
+            _status = '送信中 ${i + 1}/${targets.length}: ${item.title}');
 
-      var success = false;
-      if (hash != null && await uploader.exists(hash)) {
-        skipped++;
-        success = true;
-      } else {
-        final res = await uploader.upload(file, item.relativePath);
-        if (res.ok) {
-          done++;
-          success = true;
-        } else {
+        final file = await item.originFile();
+        if (file == null) {
           failed++;
+          await SentStore.log(
+            assetId: item.id,
+            title: item.title,
+            relativePath: item.relativePath,
+            status: 'failed',
+            detail: 'ファイルを取得できませんでした',
+          );
+          continue;
         }
-      }
 
-      if (success) {
+        // 内容ハッシュを計算し、サーバーに既にあれば送らずに済ます
+        String? hash;
+        try {
+          hash = await _sha256OfFile(file);
+        } catch (_) {
+          hash = null;
+        }
+
         int? size;
         try {
           size = await file.length();
         } catch (_) {
           size = null;
         }
-        await SentStore.markSent(
+
+        var success = false;
+        var status = 'failed';
+        String? detail;
+
+        if (hash != null && await uploader.exists(hash)) {
+          skipped++;
+          success = true;
+          status = 'skipped';
+          detail = 'Pixelに既に存在';
+        } else {
+          final res = await uploader.upload(file, item.relativePath);
+          if (res.ok) {
+            done++;
+            success = true;
+            status = 'sent';
+          } else if (res.insufficientStorage) {
+            // 空き容量不足：このファイルは送れないのでバッチを中断
+            stoppedForStorage = true;
+            await SentStore.log(
+              assetId: item.id,
+              title: item.title,
+              relativePath: item.relativePath,
+              status: 'failed',
+              detail: res.error,
+              size: size,
+            );
+            break;
+          } else {
+            failed++;
+            detail = res.error;
+          }
+        }
+
+        await SentStore.log(
           assetId: item.id,
-          sha256: hash,
-          fileSize: size,
-          modifiedTime: item.modifiedAt.millisecondsSinceEpoch,
+          title: item.title,
           relativePath: item.relativePath,
+          status: status,
+          detail: detail,
+          size: size,
         );
-        _sentIds.add(item.id);
+
+        if (success) {
+          await SentStore.markSent(
+            assetId: item.id,
+            sha256: hash,
+            fileSize: size,
+            modifiedTime: item.modifiedAt.millisecondsSinceEpoch,
+            relativePath: item.relativePath,
+          );
+          _sentIds.add(item.id);
+        }
       }
+    } finally {
+      await WakelockPlus.disable();
     }
 
+    // 空き容量を更新表示
+    final si = await uploader.info();
+
+    final summary =
+        '完了: 送信 $done 件 / スキップ $skipped 件 / 失敗 $failed 件'
+        '${stoppedForStorage ? '\n⚠️ Pixelの空き容量不足で中断しました' : ''}';
     setState(() {
       _status = null;
       _selected.clear();
+      _lastResult = summary;
+      _freeBytes = si?.freeBytes;
     });
-    _showSnack(
-        '完了: 送信 $done 件 / スキップ $skipped 件 / 失敗 $failed 件');
+    _showSnack(summary);
   }
 
   void _showSnack(String msg) {
@@ -245,6 +309,12 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         title: const Text('media-relay'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.history),
+            tooltip: '送信履歴',
+            onPressed: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const HistoryPage())),
+          ),
           IconButton(
             icon: const Icon(Icons.folder),
             tooltip: '送信対象フォルダ',
@@ -321,6 +391,24 @@ class _HomePageState extends State<HomePage> {
             padding: const EdgeInsets.all(8),
             child: Text(_status!),
           ),
+        if (_status == null && _lastResult != null)
+          Container(
+            width: double.infinity,
+            color: Colors.green.withValues(alpha: 0.08),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              children: [
+                const Icon(Icons.task_alt, size: 18, color: Colors.green),
+                const SizedBox(width: 8),
+                Expanded(child: Text(_lastResult!)),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 18),
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => setState(() => _lastResult = null),
+                ),
+              ],
+            ),
+          ),
         Expanded(
           child: _visible.isEmpty
               ? Center(
@@ -358,12 +446,20 @@ class _HomePageState extends State<HomePage> {
             child: Text(
               server == null
                   ? '送信先未設定 — 設定から登録してください'
-                  : '送信先: ${server.name} (${server.host}:${server.port})',
+                  : '送信先: ${server.name} (${server.host}:${server.port})'
+                      '${_freeBytes != null ? ' · 空き ${_fmtBytes(_freeBytes!)}' : ''}',
             ),
           ),
         ],
       ),
     );
+  }
+
+  String _fmtBytes(int b) {
+    if (b >= 1024 * 1024 * 1024) {
+      return '${(b / (1024 * 1024 * 1024)).toStringAsFixed(1)}GB';
+    }
+    return '${(b / (1024 * 1024)).toStringAsFixed(0)}MB';
   }
 
   Widget _statusBar() {

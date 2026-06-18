@@ -28,6 +28,19 @@ const SCAN_DIRS = (process.env.SCAN_DIRS
 // マルチパートを受け取るが保存先はrelativePathで決める
 const upload = multer({ storage: multer.memoryStorage() });
 
+// アップロードを拒否し始める空き容量の余白（バイト）
+const FREE_SPACE_MARGIN = 500 * 1024 * 1024; // 500MB
+
+// STORAGE_ROOT のある領域の空き容量（バイト）。取得できなければ null。
+function freeBytes() {
+  try {
+    const st = fs.statfsSync(STORAGE_ROOT);
+    return st.bavail * st.bsize;
+  } catch {
+    return null;
+  }
+}
+
 // ---- SHA256ハッシュ・インデックス（重複判定の高速化） ----
 // 対象フォルダ配下を一度だけ走査してSHA256の集合を作りメモリに保持する。
 // アップロード時は差分追加、POST /reindex で再構築できる。
@@ -131,6 +144,17 @@ app.post('/upload', upload.single('file'), (req, res) => {
     return res.status(400).json({ error: 'relativePath is required' });
   }
 
+  // 空き容量チェック（このファイル＋余白が入らなければ拒否）
+  const free = freeBytes();
+  if (free !== null && free < req.file.size + FREE_SPACE_MARGIN) {
+    console.warn(`[upload] rejected: low storage (free=${free}, need=${req.file.size})`);
+    return res.status(507).json({
+      error: 'insufficient storage',
+      freeBytes: free,
+      neededBytes: req.file.size,
+    });
+  }
+
   // パストラバーサル対策
   const normalized = path.normalize(relativePath).replace(/^(\.\.(\/|\\|$))+/, '');
   const destPath = path.join(STORAGE_ROOT, normalized);
@@ -152,7 +176,12 @@ app.post('/upload', upload.single('file'), (req, res) => {
 
 // サーバー状態確認
 app.get('/ping', (req, res) => {
-  res.json({ ok: true, storageRoot: STORAGE_ROOT, scanDirs: SCAN_DIRS });
+  res.json({
+    ok: true,
+    storageRoot: STORAGE_ROOT,
+    scanDirs: SCAN_DIRS,
+    freeBytes: freeBytes(),
+  });
 });
 
 app.listen(PORT, '0.0.0.0', () => {

@@ -9,7 +9,21 @@ class UploadResult {
   final bool ok;
   final String? error;
   final String? sha256;
-  UploadResult({required this.ok, this.error, this.sha256});
+  // Pixelの空き容量不足で拒否された（バッチを止める判断に使う）
+  final bool insufficientStorage;
+  UploadResult({
+    required this.ok,
+    this.error,
+    this.sha256,
+    this.insufficientStorage = false,
+  });
+}
+
+/// サーバーの状態（/ping のレスポンス）
+class ServerInfo {
+  final String? storageRoot;
+  final int? freeBytes;
+  ServerInfo({this.storageRoot, this.freeBytes});
 }
 
 /// Pixelサーバーへファイルを送るクライアント
@@ -26,6 +40,23 @@ class Uploader {
       return res.statusCode == 200;
     } catch (_) {
       return false;
+    }
+  }
+
+  /// サーバーの状態（空き容量など）を取得する。失敗時は null。
+  Future<ServerInfo?> info() async {
+    try {
+      final res = await http
+          .get(Uri.parse('${server.baseUrl}/ping'))
+          .timeout(const Duration(seconds: 5));
+      if (res.statusCode != 200) return null;
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      return ServerInfo(
+        storageRoot: body['storageRoot'] as String?,
+        freeBytes: (body['freeBytes'] as num?)?.toInt(),
+      );
+    } catch (_) {
+      return null;
     }
   }
 
@@ -75,6 +106,13 @@ class Uploader {
 
       if (res.statusCode == 200) {
         return UploadResult(ok: true);
+      }
+      // 507 Insufficient Storage = Pixelの空き容量不足
+      if (res.statusCode == 507) {
+        return UploadResult(
+            ok: false,
+            insufficientStorage: true,
+            error: 'Pixelの空き容量が不足しています');
       }
       return UploadResult(ok: false, error: 'HTTP ${res.statusCode}: ${res.body}');
     } catch (e) {
