@@ -11,6 +11,10 @@ on:
       - ".github/workflows/build-apk.yml"
   workflow_dispatch:
 
+# Release を作成するために書き込み権限が必要
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -58,12 +62,29 @@ jobs:
             echo "No ANDROID_KEYSTORE_BASE64 secret set; falling back to debug signing."
           fi
 
+      # ビルド毎に versionCode / versionName を上げる（更新判定のため）
       - name: Build release APK
-        run: flutter build apk --release
+        run: flutter build apk --release --build-name=1.0.${{ github.run_number }} --build-number=${{ github.run_number }}
 
-      - name: Upload APK
+      # 安定したファイル名にしておく（最新版の固定URLで配布できる）
+      - name: Rename APK
+        run: cp build/app/outputs/flutter-apk/app-release.apk media-relay.apk
+
+      - name: Upload APK (artifact)
         uses: actions/upload-artifact@v4
         with:
           name: media-relay-apk
-          path: app/build/app/outputs/flutter-apk/app-release.apk
+          path: app/media-relay.apk
           if-no-files-found: error
+
+      # GitHub Release を作成してAPKを添付（Obtainiumで更新管理／直接DL用）
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: media-relay build ${{ github.run_number }}
+          files: app/media-relay.apk
+          body: |
+            自動ビルドのAPK。Obtainium で更新管理できます。
+            最新版APK（固定リンク）:
+            https://github.com/kuboshige/media-relay/releases/latest/download/media-relay.apk
