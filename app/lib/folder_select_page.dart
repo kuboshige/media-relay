@@ -110,7 +110,7 @@ class _AlbumThumb extends StatelessWidget {
           }
           return FutureBuilder(
             future:
-                asset.thumbnailDataWithSize(const ThumbnailSize.square(100)),
+                asset.thumbnailDataWithSize(const ThumbnailSize(100, 100)),
             builder: (context, t) {
               if (t.hasData && t.data != null) {
                 return ClipRRect(

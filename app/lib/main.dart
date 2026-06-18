@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
+import 'package:photo_manager/photo_manager.dart';
 import 'media_source.dart';
 import 'server_config.dart';
 import 'uploader.dart';
@@ -398,7 +399,7 @@ class _HomePageState extends State<HomePage> {
         children: [
           FutureBuilder(
             future: item.asset
-                .thumbnailDataWithSize(const ThumbnailSize.square(200)),
+                .thumbnailDataWithSize(const ThumbnailSize(200, 200)),
             builder: (context, snap) {
               if (snap.hasData && snap.data != null) {
                 return Image.memory(snap.data!, fit: BoxFit.cover);
