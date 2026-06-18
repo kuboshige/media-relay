@@ -72,9 +72,10 @@ class MediaSource {
 
   /// 選択アルバムからメディアを集約し、新しい順で返す。
   /// [albumIds] が null のときは全アルバムを対象にする。
+  /// 選択フォルダ内は（安全上限まで）すべて取得して時系列に並べる。
   static Future<List<MediaItem>> listFromAlbums(
     Set<String>? albumIds, {
-    int perAlbum = 500,
+    int maxTotal = 20000,
   }) async {
     final paths = await PhotoManager.getAssetPathList(
       type: RequestType.common,
@@ -87,8 +88,11 @@ class MediaSource {
       if (albumIds != null && !albumIds.contains(pth.id)) continue;
       final c = await pth.assetCountAsync;
       if (c == 0) continue;
-      final assets = await pth.getAssetListRange(
-          start: 0, end: c < perAlbum ? c : perAlbum);
+      // 大量ライブラリでもメモリが破綻しないよう全体上限を設ける
+      final remaining = maxTotal - byId.length;
+      if (remaining <= 0) break;
+      final end = c < remaining ? c : remaining;
+      final assets = await pth.getAssetListRange(start: 0, end: end);
       for (final a in assets) {
         byId[a.id] = a;
       }

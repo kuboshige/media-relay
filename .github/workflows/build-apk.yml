@@ -40,6 +40,24 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      # GitHub Secret に署名キーがあれば復元する。無ければデバッグ署名でビルド継続。
+      - name: Restore signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$GITHUB_WORKSPACE/app/android/app/release.keystore"
+            cat > "$GITHUB_WORKSPACE/app/android/key.properties" <<EOF
+          storeFile=$GITHUB_WORKSPACE/app/android/app/release.keystore
+          storePassword=mediarelay
+          keyAlias=media-relay
+          keyPassword=mediarelay
+          EOF
+            echo "Signing key restored: release APK will be update-installable."
+          else
+            echo "No ANDROID_KEYSTORE_BASE64 secret set; falling back to debug signing."
+          fi
+
       - name: Build release APK
         run: flutter build apk --release
 
