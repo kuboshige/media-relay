@@ -283,6 +283,12 @@ class _HomePageState extends State<HomePage> {
       await WakelockPlus.disable();
     }
 
+    // 送信したファイルをGoogleフォトに出すため、PixelのMediaStoreへ登録させる
+    if (done > 0) {
+      setState(() => _status = 'Pixelで写真を登録中…（Googleフォト用）');
+      await uploader.scan();
+    }
+
     // 空き容量を更新表示
     final si = await uploader.info();
 

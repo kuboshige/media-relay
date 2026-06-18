@@ -3,6 +3,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const { execFile } = require('child_process');
 
 const app = express();
 const PORT = process.env.PORT || 8765;
@@ -172,6 +173,24 @@ app.post('/upload', upload.single('file'), (req, res) => {
   console.log(`[upload] ${normalized} (${req.file.size} bytes, sha256=${hash})`);
 
   res.json({ ok: true, relativePath: normalized, sha256: hash, size: req.file.size });
+});
+
+// メディアスキャン：保存したファイルをAndroidのMediaStoreに登録する。
+// これをやらないとGoogleフォト等の「端末内フォルダ」に出てこない。
+// termux-api（pkg install termux-api ＋ Termux:API アプリ）が必要。
+app.post('/scan', (req, res) => {
+  execFile('termux-media-scan', ['-r', STORAGE_ROOT], { timeout: 5 * 60 * 1000 },
+    (err) => {
+      if (err) {
+        return res.json({
+          ok: false,
+          error: err.message,
+          hint: 'termux-api が必要です（pkg install termux-api ＋ F-DroidのTermux:APIアプリ）',
+        });
+      }
+      console.log(`[scan] media scan done: ${STORAGE_ROOT}`);
+      res.json({ ok: true, scanned: STORAGE_ROOT });
+    });
 });
 
 // サーバー状態確認

@@ -91,6 +91,21 @@ class Uploader {
     }
   }
 
+  /// 保存済みファイルをAndroidのMediaStoreに登録させる（Googleフォト用）。
+  /// termux-api 未導入なら false。
+  Future<bool> scan() async {
+    try {
+      final res = await http
+          .post(Uri.parse('${server.baseUrl}/scan'))
+          .timeout(const Duration(minutes: 5));
+      if (res.statusCode != 200) return false;
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      return body['ok'] == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// 指定ファイルをアップロードする。
   /// [relativePath] はPixel側で再現するフォルダ構造（例: DCIM/Camera/x.jpg）
   Future<UploadResult> upload(File file, String relativePath) async {

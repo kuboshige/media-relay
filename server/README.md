@@ -57,10 +57,31 @@ chmod +x ~/.termux/boot/start-media-relay.sh
 
 | メソッド | パス | 説明 |
 |---|---|---|
-| GET | `/ping` | サーバー死活確認 |
-| POST | `/upload` | ファイルアップロード |
+| GET | `/ping` | サーバー死活確認（空き容量も返す） |
+| POST | `/upload` | ファイルアップロード（空き不足時は507） |
 | GET | `/exists?hash=<sha256>` | ファイル存在確認（ハッシュ索引で照合） |
 | POST | `/reindex` | ハッシュ索引を再構築（クイックシェア新規受信を取り込む） |
+| POST | `/scan` | 保存ファイルをMediaStoreに登録（Googleフォト表示用） |
+
+### Googleフォトに出すためのメディアスキャン（重要）
+
+サーバーが直接書き込んだファイルはAndroidのMediaStoreに未登録のため、
+そのままではGoogleフォトの「端末内フォルダ」に出てこない。`termux-api` を
+入れておくと、アプリが送信後に `POST /scan` を呼んで自動登録する。
+
+```bash
+pkg install termux-api
+```
+
+さらに **F-Droidから「Termux:API」アプリ** も必要（コマンドと対になる）。
+手動で登録したい場合：
+
+```bash
+termux-media-scan -r /sdcard/MediaRelay
+```
+
+登録後、Googleフォト → ライブラリ → 端末内フォルダ で `MediaRelay` 配下が
+表示され、バックアップ対象に指定できる。
 
 ### 重複判定とクイックシェア照合（SCAN_DIRS）
 
