@@ -272,6 +272,26 @@ class _ReceiverPageState extends State<ReceiverPage> {
               const SizedBox(height: 8),
               Text('このセッションの受信: ${_server!.receivedThisSession} 件 / '
                   '台帳: ${_server!.knownHashes} ハッシュ'),
+              if (_server!.receivingName != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Row(
+                    children: [
+                      const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '受信中: ${_server!.receivingName} '
+                          '(${(_server!.receivingBytes / 1024 / 1024).toStringAsFixed(1)} MB)',
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
             ],
             if (_error != null) ...[
               const SizedBox(height: 12),

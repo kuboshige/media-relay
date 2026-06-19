@@ -23,12 +23,16 @@ class RelayServer {
   HttpServer? _server;
   final Set<String> _seen = {};
   int _received = 0;
+  String? _recvName; // 受信中ファイル名（進捗表示用）
+  int _recvBytes = 0; // 受信中ファイルのこれまでのバイト数
 
   RelayServer({required this.storageRoot, this.port = 8765});
 
   bool get running => _server != null;
   int get knownHashes => _seen.length;
   int get receivedThisSession => _received;
+  String? get receivingName => _recvName;
+  int get receivingBytes => _recvBytes;
 
   File get _ledgerFile =>
       File(p.join(storageRoot, '.state', 'received-hashes.txt'));
@@ -122,23 +126,29 @@ class RelayServer {
       final name =
           _dispoValue(part.headers['content-disposition'] ?? '', 'name');
       if (name == 'file') {
-        // 大きな動画をメモリに溜めない：ストリームで一時ファイルへ書きながら
-        // SHA256を逐次計算する（旧実装は全バイトをList<int>に溜めて枯渇していた）。
+        // 大きな動画をメモリに溜めない：addStream でバックプレッシャーを効かせつつ
+        // 一時ファイルへ書き、通過するチャンクでSHA256と進捗を更新する。
         tmp = File(p.join(storageRoot, '.state',
             'upload-${DateTime.now().microsecondsSinceEpoch}.part'));
         final sink = tmp.openWrite();
         final digestSink = _DigestSink();
         final hashSink = sha256.startChunkedConversion(digestSink);
+        _recvName = _dispoValue(
+                part.headers['content-disposition'] ?? '', 'filename') ??
+            'file';
+        _recvBytes = 0;
         try {
-          await for (final chunk in part) {
-            sink.add(chunk);
+          await sink.addStream(part.map((chunk) {
             hashSink.add(chunk);
+            _recvBytes += chunk.length;
             size += chunk.length;
-          }
+            return chunk;
+          }));
         } finally {
           await sink.flush();
           await sink.close();
           hashSink.close();
+          _recvName = null;
         }
         hash = digestSink.value?.toString();
       } else {

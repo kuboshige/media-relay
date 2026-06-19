@@ -11,7 +11,14 @@ class QrScanPage extends StatefulWidget {
 }
 
 class _QrScanPageState extends State<QrScanPage> {
+  final MobileScannerController _controller = MobileScannerController();
   bool _handled = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   void _onDetect(BarcodeCapture capture) {
     if (_handled) return;
@@ -33,7 +40,40 @@ class _QrScanPageState extends State<QrScanPage> {
       appBar: AppBar(title: const Text('QRで追加')),
       body: Stack(
         children: [
-          MobileScanner(onDetect: _onDetect),
+          MobileScanner(
+            controller: _controller,
+            onDetect: _onDetect,
+            // カメラが起動できない理由を画面に出す（黒画面＋!の原因特定用）
+            errorBuilder: (context, error, child) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.error_outline,
+                          color: Colors.red, size: 48),
+                      const SizedBox(height: 12),
+                      Text('カメラを起動できません',
+                          style: Theme.of(context).textTheme.titleMedium),
+                      const SizedBox(height: 8),
+                      Text(
+                        'code: ${error.errorCode}\n'
+                        '${error.errorDetails?.message ?? ''}',
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      FilledButton.icon(
+                        onPressed: () => _controller.start(),
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('再試行'),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
           const Align(
             alignment: Alignment.bottomCenter,
             child: Padding(
