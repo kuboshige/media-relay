@@ -419,10 +419,8 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
-    // Pixelの索引を最新化してから生存確認する
-    setState(() => _status = 'Pixel側を確認準備中…');
-    await uploader.reindex();
-
+    // 受領確認は永続台帳ベース（/exists）。台帳に無いハッシュだけサーバ側が
+    // 自動でディスク走査するので、ここで重い /reindex を呼ぶ必要はない。
     final verified = <String>[]; // 削除してよい asset id
     var unconfirmed = 0;
     await WakelockPlus.enable();
