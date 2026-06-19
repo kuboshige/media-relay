@@ -42,7 +42,8 @@ class RelayServer {
       ..get('/exists', _exists)
       ..post('/reindex', _reindex)
       ..post('/upload', _upload)
-      ..post('/setdate', _setdate);
+      ..post('/setdate', _setdate)
+      ..post('/scan', _scan);
     _server = await shelf_io.serve(
         const Pipeline().addHandler(router.call), InternetAddress.anyIPv4, port);
   }
@@ -139,6 +140,11 @@ class RelayServer {
       'size': fileBytes.length,
     });
   }
+
+  // MediaStore登録（Googleフォト表示）は Step③ で実装予定。
+  // 今は送信側が応答待ちで固まらないよう、即座に応答だけ返す（No-op）。
+  Response _scan(Request req) =>
+      _json({'ok': false, 'error': 'not implemented yet (step3)'});
 
   Future<Response> _setdate(Request req) async {
     final body = jsonDecode(await req.readAsString()) as Map<String, dynamic>;

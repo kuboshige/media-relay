@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -25,6 +26,7 @@ class _ReceiverPageState extends State<ReceiverPage> {
   String? _storageRoot;
   String? _error;
   bool _busy = false;
+  Timer? _refresh; // 受信カウンタを定期的に再描画する
 
   @override
   void initState() {
@@ -34,6 +36,7 @@ class _ReceiverPageState extends State<ReceiverPage> {
 
   @override
   void dispose() {
+    _refresh?.cancel();
     _server?.stop();
     WakelockPlus.disable();
     super.dispose();
@@ -60,6 +63,10 @@ class _ReceiverPageState extends State<ReceiverPage> {
       await server.start();
       _ips = await RelayServer.localIps();
       await WakelockPlus.enable();
+      _refresh?.cancel();
+      _refresh = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted) setState(() {});
+      });
       setState(() {
         _server = server;
         _busy = false;
@@ -73,6 +80,7 @@ class _ReceiverPageState extends State<ReceiverPage> {
   }
 
   Future<void> _stop() async {
+    _refresh?.cancel();
     await _server?.stop();
     await WakelockPlus.disable();
     setState(() => _server = null);
