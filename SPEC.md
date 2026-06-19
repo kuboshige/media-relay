@@ -87,7 +87,7 @@ Motorola Edge 50 Pro（メイン端末・持ち歩き）
 ### Step 5：Termux:Boot対応（Pixel自動起動）
 **目標：** Pixel再起動後にサーバーが自動で立ち上がる
 
-- [ ] Termux:Boot 用の起動スクリプト作成
+- [x] Termux:Boot 用の起動スクリプト作成（`server/boot/start-media-relay.sh`、wake-lock付き）
 - [ ] **確認方法：** Pixelを再起動してサーバーが自動起動するか確認
 
 ---

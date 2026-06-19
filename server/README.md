@@ -32,24 +32,28 @@ bash start.sh
 
 ## Termux:Boot 自動起動設定
 
-**Termux:Boot** をF-Droidからインストールし、以下のファイルを作成する：
+Pixel再起動後にサーバーを自動起動する。起動スクリプトは
+`server/boot/start-media-relay.sh` に用意済み。
 
+### 1. Termux:Boot アプリを入れる
+F-Droid から **Termux:Boot** をインストールし、**一度起動**しておく
+（一度起動しないと有効化されない）。
+
+### 2. バッテリー最適化を切る（重要）
+Android の省電力でサーバーが殺されないよう、**Termux** と **Termux:Boot** を
+端末の設定 → アプリ → 各アプリ → バッテリー → **「制限なし」** にする。
+wake-lock を効かせるため `termux-api` も入れておく（`pkg install termux-api`）。
+
+### 3. 起動スクリプトを配置
 ```bash
 mkdir -p ~/.termux/boot
-```
-
-`~/.termux/boot/start-media-relay.sh` を作成：
-```bash
-#!/data/data/com.termux/files/usr/bin/bash
-cd ~/media-relay/server
-node index.js &
-```
-
-```bash
+cp ~/media-relay/server/boot/start-media-relay.sh ~/.termux/boot/start-media-relay.sh
 chmod +x ~/.termux/boot/start-media-relay.sh
 ```
 
-これでPixel再起動後にサーバーが自動起動する。
+### 4. 動作確認
+Pixelを再起動し、他端末から `http://<PixelのIP>:8765/ping` が返るか確認する。
+起動ログは `~/media-relay-boot.log` に出る。
 
 ---
 
