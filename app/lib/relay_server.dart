@@ -75,8 +75,15 @@ class RelayServer {
   Response _json(Object body, {int status = 200}) => Response(status,
       body: jsonEncode(body), headers: {'content-type': 'application/json'});
 
-  Response _ping(Request req) =>
-      _json({'ok': true, 'storageRoot': storageRoot, 'freeBytes': null});
+  Response _ping(Request req) => _json({
+        'ok': true,
+        'storageRoot': storageRoot,
+        'freeBytes': null,
+        // このサーバーはアプリ内Dart実装。MediaStore登録(/scan)はまだ非対応。
+        // 送信側はこのフラグを見て、無駄な /scan 待ちをスキップする。
+        'mediaScan': false,
+        'app': true,
+      });
 
   Response _exists(Request req) {
     final hash = req.url.queryParameters['hash'] ?? '';
@@ -186,8 +193,9 @@ class RelayServer {
 
   /// 端末のLAN候補IP（IPv4）を、Wi-Fi(wlan)優先で並べて返す。
   /// Pixelには複数I/F（VPN/仮想等）があり得るので、送信側が選べるよう全部返す。
-  static Future<List<String>> localIps() async {
-    final out = <String>[];
+  /// 各候補にインターフェイス名と「Wi-Fiか」も付ける（謎IPの判別用）。
+  static Future<List<({String ip, String iface, bool wifi})>> localIps() async {
+    final out = <({String ip, String iface, bool wifi})>[];
     try {
       final ifaces = await NetworkInterface.list(
           type: InternetAddressType.IPv4, includeLinkLocal: false);
@@ -206,9 +214,12 @@ class RelayServer {
 
       ifaces.sort((a, b) => score(a).compareTo(score(b)));
       for (final i in ifaces) {
+        final wifi = i.name.toLowerCase().contains('wlan');
         for (final a in i.addresses) {
-          if (!a.isLoopback && !a.isLinkLocal && !out.contains(a.address)) {
-            out.add(a.address);
+          if (!a.isLoopback &&
+              !a.isLinkLocal &&
+              !out.any((e) => e.ip == a.address)) {
+            out.add((ip: a.address, iface: i.name, wifi: wifi));
           }
         }
       }
@@ -219,6 +230,6 @@ class RelayServer {
   /// 最有力のLAN IP（wlan優先の先頭）。表示用。
   static Future<String?> localIp() async {
     final ips = await localIps();
-    return ips.isEmpty ? null : ips.first;
+    return ips.isEmpty ? null : ips.first.ip;
   }
 }

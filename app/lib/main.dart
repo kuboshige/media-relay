@@ -185,11 +185,14 @@ class _HomePageState extends State<HomePage> {
 
     final uploader = Uploader(server);
     setState(() => _status = 'サーバー確認中…');
-    if (!await uploader.ping()) {
+    final caps = await uploader.info();
+    if (caps == null) {
       setState(() => _status = null);
       _showSnack('${server.name}に接続できません（${server.host}:${server.port}）');
       return;
     }
+    // 受信側がMediaStore登録に非対応（アプリ内受信）なら /scan を呼ばない
+    final supportsScan = caps.supportsMediaScan;
 
     int done = 0;
     int skipped = 0;
@@ -295,8 +298,9 @@ class _HomePageState extends State<HomePage> {
       await WakelockPlus.disable();
     }
 
-    // 送信したファイルをGoogleフォトに出すため、PixelのMediaStoreへ登録させる
-    if (done > 0) {
+    // 送信したファイルをGoogleフォトに出すため、MediaStoreへ登録させる。
+    // アプリ内受信（MediaStore非対応）の場合はスキップ（無駄な待ちを防ぐ）。
+    if (done > 0 && supportsScan) {
       setState(() => _status = '${server.name}で写真を登録中…（Googleフォト用）');
       await uploader.scan();
     }
@@ -354,7 +358,8 @@ class _HomePageState extends State<HomePage> {
 
     final uploader = Uploader(server);
     setState(() => _status = 'サーバー確認中…');
-    if (!await uploader.ping()) {
+    final caps = await uploader.info();
+    if (caps == null) {
       setState(() => _status = null);
       _showSnack('${server.name}に接続できません（${server.host}:${server.port}）');
       return;
@@ -375,8 +380,10 @@ class _HomePageState extends State<HomePage> {
           miss++;
         }
       }
-      setState(() => _status = '${server.name}で再登録中…（Googleフォト用）');
-      await uploader.scan();
+      if (caps.supportsMediaScan) {
+        setState(() => _status = '${server.name}で再登録中…（Googleフォト用）');
+        await uploader.scan();
+      }
     } finally {
       await WakelockPlus.disable();
     }

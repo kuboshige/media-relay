@@ -23,7 +23,14 @@ class UploadResult {
 class ServerInfo {
   final String? storageRoot;
   final int? freeBytes;
-  ServerInfo({this.storageRoot, this.freeBytes});
+  // 受信側が MediaStore登録(/scan) に対応しているか。
+  // 旧node実装はこのフィールドを返さない → null（=対応扱い・従来通りscanする）。
+  // アプリ内受信は false を返す → 送信側は /scan をスキップする。
+  final bool? mediaScan;
+  ServerInfo({this.storageRoot, this.freeBytes, this.mediaScan});
+
+  /// /scan を呼ぶべきか（未指定の旧実装は従来通り呼ぶ）。
+  bool get supportsMediaScan => mediaScan ?? true;
 }
 
 /// Pixelサーバーへファイルを送るクライアント
@@ -54,6 +61,7 @@ class Uploader {
       return ServerInfo(
         storageRoot: body['storageRoot'] as String?,
         freeBytes: (body['freeBytes'] as num?)?.toInt(),
+        mediaScan: body['mediaScan'] as bool?,
       );
     } catch (_) {
       return null;

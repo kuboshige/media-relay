@@ -21,7 +21,7 @@ class ReceiverPage extends StatefulWidget {
 
 class _ReceiverPageState extends State<ReceiverPage> {
   RelayServer? _server;
-  List<String> _ips = [];
+  List<({String ip, String iface, bool wifi})> _ips = [];
   int _port = AppSettings.defaultReceiverPort;
   String? _storageRoot;
   String? _error;
@@ -86,12 +86,22 @@ class _ReceiverPageState extends State<ReceiverPage> {
     setState(() => _server = null);
   }
 
-  Widget _ipRow(String ip) {
-    final addr = '$ip:$_port';
+  Widget _ipRow(({String ip, String iface, bool wifi}) e) {
+    final addr = '${e.ip}:$_port';
+    final label = e.wifi ? 'Wi-Fi' : e.iface;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         children: [
+          Chip(
+            label: Text(label,
+                style: const TextStyle(fontSize: 11)),
+            backgroundColor:
+                e.wifi ? Colors.green.shade100 : Colors.orange.shade100,
+            visualDensity: VisualDensity.compact,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+          const SizedBox(width: 8),
           Expanded(
             child: SelectableText(addr,
                 style: Theme.of(context).textTheme.titleLarge),
