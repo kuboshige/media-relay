@@ -761,7 +761,8 @@ class _HomePageState extends State<HomePage> {
             const Positioned(
               left: 4,
               top: 4,
-              child: Icon(Icons.cloud_done, color: Colors.lightGreenAccent,
+              // 「Pixelへ転送済み」を表す。クラウド保存済みではないので雲は使わない。
+              child: Icon(Icons.send_to_mobile, color: Colors.lightGreenAccent,
                   size: 18),
             ),
           if (selected)
