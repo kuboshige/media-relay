@@ -7,6 +7,9 @@
     <!-- メディア読み取り（Android 12以下） -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32"/>
+    <!-- 未送信リマインダー通知（Android 13+）と再起動後の予約復元 -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
 
     <application
         android:label="media_relay"

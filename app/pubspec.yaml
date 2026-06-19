@@ -49,6 +49,10 @@ dependencies:
   sqflite: ^2.3.3+1
   # 送信中に画面を消さない（スリープで転送が止まるのを防ぐ）
   wakelock_plus: ^1.2.8
+  # 未送信リマインダー（ローカル通知）
+  flutter_local_notifications: ^18.0.1
+  # 通知スケジュール用のタイムゾーン
+  timezone: ^0.9.4
 
 dev_dependencies:
   flutter_test:

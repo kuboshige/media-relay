@@ -11,8 +11,11 @@ import 'folder_config.dart';
 import 'folder_select_page.dart';
 import 'sent_store.dart';
 import 'history_page.dart';
+import 'notif_service.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await NotifService.init();
   runApp(const MediaRelayApp());
 }
 
@@ -73,6 +76,10 @@ class _HomePageState extends State<HomePage> {
     }
     await _reloadMedia();
     setState(() => _loading = false);
+
+    // 未送信リマインダー：通知許可を確認し、設定にもとづいて予約し直す
+    await NotifService.requestPermission();
+    await NotifService.reschedule();
     _refreshFreeSpace();
   }
 
@@ -288,6 +295,11 @@ class _HomePageState extends State<HomePage> {
     if (done > 0) {
       setState(() => _status = 'Pixelで写真を登録中…（Googleフォト用）');
       await uploader.scan();
+    }
+
+    // 送信が行われたら、未送信リマインダーを次回へ先送りする
+    if (done > 0 || skipped > 0) {
+      await NotifService.markSynced();
     }
 
     // 空き容量を更新表示

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'server_config.dart';
 import 'uploader.dart';
+import 'app_settings.dart';
+import 'notif_service.dart';
 
 /// Pixelサーバーの登録・選択画面（家・職場など複数登録できる）
 class SettingsPage extends StatefulWidget {
@@ -13,6 +15,7 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   List<ServerEntry> _servers = [];
   int _selected = 0;
+  int _reminderDays = AppSettings.defaultReminderDays;
 
   @override
   void initState() {
@@ -23,7 +26,40 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _load() async {
     _servers = await ServerConfig.load();
     _selected = await ServerConfig.selectedIndex();
+    _reminderDays = await AppSettings.reminderDays();
     setState(() {});
+  }
+
+  Future<void> _setReminderDays(int v) async {
+    setState(() => _reminderDays = v);
+    await AppSettings.setReminderDays(v);
+    if (v > 0) await NotifService.requestPermission();
+    await NotifService.reschedule();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(v <= 0 ? 'リマインダーをオフにしました' : '$v日ごとに送信を促します')));
+  }
+
+  String _reminderLabel(int d) => d <= 0 ? 'オフ' : '$d日';
+
+  Widget _reminderTile() {
+    return ListTile(
+      leading: const Icon(Icons.notifications_active),
+      title: const Text('未送信リマインダー'),
+      subtitle: Text(_reminderDays <= 0
+          ? 'オフ'
+          : '最後の送信から$_reminderDays日後に通知します'),
+      trailing: DropdownButton<int>(
+        value: _reminderDays,
+        onChanged: (v) {
+          if (v != null) _setReminderDays(v);
+        },
+        items: [
+          for (final d in AppSettings.reminderChoices)
+            DropdownMenuItem(value: d, child: Text(_reminderLabel(d))),
+        ],
+      ),
+    );
   }
 
   Future<void> _persist() async {
@@ -71,14 +107,29 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('送信先サーバー設定')),
-      body: _servers.isEmpty
-          ? const Center(child: Text('サーバー未登録\n右下の＋から追加', textAlign: TextAlign.center))
-          : ListView.builder(
-              itemCount: _servers.length,
-              itemBuilder: (context, i) {
-                final s = _servers[i];
-                return RadioListTile<int>(
+      appBar: AppBar(title: const Text('設定')),
+      body: Column(
+        children: [
+          _reminderTile(),
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text('送信先サーバー',
+                  style: Theme.of(context).textTheme.titleSmall),
+            ),
+          ),
+          Expanded(
+            child: _servers.isEmpty
+                ? const Center(
+                    child: Text('サーバー未登録\n右下の＋から追加',
+                        textAlign: TextAlign.center))
+                : ListView.builder(
+                    itemCount: _servers.length,
+                    itemBuilder: (context, i) {
+                      final s = _servers[i];
+                      return RadioListTile<int>(
                   value: i,
                   groupValue: _selected,
                   onChanged: (v) async {
@@ -105,9 +156,12 @@ class _SettingsPageState extends State<SettingsPage> {
                       ),
                     ],
                   ),
-                );
-              },
-            ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _edit(),
         child: const Icon(Icons.add),
