@@ -373,6 +373,115 @@ class _HomePageState extends State<HomePage> {
     _showSnack(summary);
   }
 
+  /// 送信済みファイルをこの端末（Motorola）から削除する。
+  /// 安全のため、削除直前に1件ずつPixelへ存在確認し、確認できたものだけ消す。
+  /// 選択中があればその分、なければ送信済み全件が対象。
+  Future<void> _deleteSentFromDevice() async {
+    final server = _currentServer;
+    if (server == null) {
+      _showSnack('先に設定でPixelのサーバーを登録してください');
+      return;
+    }
+    // 対象：選択があればそれ、なければ送信済み全件
+    final candidates = _selected.isNotEmpty
+        ? _all.where((m) => _selected.contains(m.id)).toList()
+        : _all.where((m) => _sentIds.contains(m.id)).toList();
+    if (candidates.isEmpty) {
+      _showSnack('削除対象がありません（送信済みファイルか、選択が必要）');
+      return;
+    }
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('この端末から削除'),
+        content: Text(
+          '${candidates.length} 件をこの端末から削除します。\n\n'
+          '・削除直前にPixelに存在することを1件ずつ確認し、確認できたものだけ消します\n'
+          '・Pixel（とGoogleフォト）側のコピーは残ります\n'
+          '・実行すると端末の削除確認ダイアログが出ます\n\n'
+          '※ Pixelのフォトへのバックアップ完了を確認してから実行してください',
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('キャンセル')),
+          FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('確認して削除')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+
+    final uploader = Uploader(server);
+    setState(() => _status = 'サーバー確認中…');
+    if (!await uploader.ping()) {
+      setState(() => _status = null);
+      _showSnack('Pixelに接続できません（${server.host}:${server.port}）');
+      return;
+    }
+
+    // Pixelの索引を最新化してから生存確認する
+    setState(() => _status = 'Pixel側を確認準備中…');
+    await uploader.reindex();
+
+    final verified = <String>[]; // 削除してよい asset id
+    var unconfirmed = 0;
+    await WakelockPlus.enable();
+    try {
+      for (var i = 0; i < candidates.length; i++) {
+        final m = candidates[i];
+        setState(() =>
+            _status = 'クラウド確認中 ${i + 1}/${candidates.length}: ${m.title}');
+        final file = await m.originFile();
+        if (file == null) {
+          unconfirmed++;
+          continue;
+        }
+        String? hash;
+        try {
+          hash = await _sha256OfFile(file);
+        } catch (_) {
+          hash = null;
+        }
+        if (hash != null && await uploader.exists(hash)) {
+          verified.add(m.id);
+        } else {
+          unconfirmed++;
+        }
+      }
+    } finally {
+      await WakelockPlus.disable();
+    }
+
+    if (verified.isEmpty) {
+      setState(() => _status = null);
+      _showSnack('Pixelで存在を確認できたファイルがありませんでした（削除中止）');
+      return;
+    }
+
+    setState(() => _status = '削除中…（端末の確認ダイアログで許可してください）');
+    List<String> deleted = const [];
+    try {
+      deleted = await PhotoManager.editor.deleteWithIds(verified);
+    } catch (e) {
+      setState(() => _status = null);
+      _showSnack('削除に失敗しました: $e');
+      return;
+    }
+
+    await _reloadMedia();
+    final summary =
+        '削除: ${deleted.length} 件 / 未確認でスキップ $unconfirmed 件';
+    setState(() {
+      _status = null;
+      _lastResult = summary;
+    });
+    _showSnack(summary);
+  }
+
   void _showSnack(String msg) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
@@ -408,6 +517,8 @@ class _HomePageState extends State<HomePage> {
                 _sendAllUnsent();
               } else if (v == 'fix_dates') {
                 _fixSentDates();
+              } else if (v == 'delete_sent') {
+                _deleteSentFromDevice();
               }
             },
             itemBuilder: (_) => [
@@ -422,6 +533,10 @@ class _HomePageState extends State<HomePage> {
               const PopupMenuItem(
                 value: 'fix_dates',
                 child: Text('送信済みの日付を修正'),
+              ),
+              const PopupMenuItem(
+                value: 'delete_sent',
+                child: Text('送信済みをこの端末から削除'),
               ),
             ],
           ),
