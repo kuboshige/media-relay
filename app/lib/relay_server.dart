@@ -113,38 +113,71 @@ class RelayServer {
 
     String? relativePath;
     String? originalDate;
-    List<int>? fileBytes;
+    File? tmp;
+    String? hash;
+    int size = 0;
+
     await for (final part
         in MimeMultipartTransformer(boundary).bind(req.read())) {
-      final name = _dispoValue(part.headers['content-disposition'] ?? '', 'name');
-      final bytes = await _collect(part);
-      if (name == 'relativePath') {
-        relativePath = utf8.decode(bytes);
-      } else if (name == 'originalDate') {
-        originalDate = utf8.decode(bytes);
-      } else if (name == 'file') {
-        fileBytes = bytes;
+      final name =
+          _dispoValue(part.headers['content-disposition'] ?? '', 'name');
+      if (name == 'file') {
+        // 大きな動画をメモリに溜めない：ストリームで一時ファイルへ書きながら
+        // SHA256を逐次計算する（旧実装は全バイトをList<int>に溜めて枯渇していた）。
+        tmp = File(p.join(storageRoot, '.state',
+            'upload-${DateTime.now().microsecondsSinceEpoch}.part'));
+        final sink = tmp.openWrite();
+        final digestSink = _DigestSink();
+        final hashSink = sha256.startChunkedConversion(digestSink);
+        try {
+          await for (final chunk in part) {
+            sink.add(chunk);
+            hashSink.add(chunk);
+            size += chunk.length;
+          }
+        } finally {
+          await sink.flush();
+          await sink.close();
+          hashSink.close();
+        }
+        hash = digestSink.value?.toString();
+      } else {
+        final bytes = await _collect(part);
+        if (name == 'relativePath') {
+          relativePath = utf8.decode(bytes);
+        } else if (name == 'originalDate') {
+          originalDate = utf8.decode(bytes);
+        }
       }
     }
-    if (fileBytes == null || relativePath == null) {
+
+    if (tmp == null || relativePath == null || hash == null) {
+      try {
+        tmp?.deleteSync();
+      } catch (_) {}
       return _json({'error': 'missing file/relativePath'}, status: 400);
     }
 
-    final normalized =
-        relativePath.replaceAll(RegExp(r'^(\.\.(/|\\|$))+'), '');
+    final normalized = relativePath.replaceAll(RegExp(r'^(\.\.(/|\\|$))+'), '');
     final dest = File(p.join(storageRoot, normalized));
     dest.parent.createSync(recursive: true);
-    dest.writeAsBytesSync(fileBytes);
+    try {
+      tmp.renameSync(dest.path);
+    } catch (_) {
+      tmp.copySync(dest.path); // 別ボリューム等でrename不可ならコピー
+      try {
+        tmp.deleteSync();
+      } catch (_) {}
+    }
     _applyDate(dest, originalDate);
 
-    final hash = sha256.convert(fileBytes).toString();
     _remember(hash);
     _received++;
     return _json({
       'ok': true,
       'relativePath': normalized,
       'sha256': hash,
-      'size': fileBytes.length,
+      'size': size,
     });
   }
 
@@ -248,4 +281,13 @@ class RelayServer {
     final pick = real.isNotEmpty ? real : ips;
     return pick.isEmpty ? null : pick.first.ip;
   }
+}
+
+/// SHA256の逐次計算（startChunkedConversion）の結果を受け取る小さなSink。
+class _DigestSink implements Sink<Digest> {
+  Digest? value;
+  @override
+  void add(Digest data) => value = data;
+  @override
+  void close() {}
 }

@@ -74,12 +74,21 @@ class _FolderSelectPageState extends State<FolderSelectPage> {
                   itemCount: _albums.length,
                   itemBuilder: (context, i) {
                     final a = _albums[i];
-                    return SwitchListTile(
-                      value: _selected.contains(a.id),
-                      onChanged: (v) => _toggle(a.id, v),
-                      secondary: _AlbumThumb(a.path),
+                    return ListTile(
+                      leading: _AlbumThumb(a.path),
                       title: Text(a.name),
-                      subtitle: Text('${a.count} 件'),
+                      subtitle: Text('${a.count} 件 ・ タップで中身を見る'),
+                      // フォルダ名/サムネのタップは「中身プレビュー」を開く。
+                      // 送信対象のON/OFFは右のスイッチだけで切り替える。
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => FolderPreviewPage(album: a)),
+                      ),
+                      trailing: Switch(
+                        value: _selected.contains(a.id),
+                        onChanged: (v) => _toggle(a.id, v),
+                      ),
                     );
                   },
                 ),
@@ -88,6 +97,96 @@ class _FolderSelectPageState extends State<FolderSelectPage> {
         icon: const Icon(Icons.check),
         label: const Text('保存'),
       ),
+    );
+  }
+}
+
+/// フォルダの中身プレビュー（サムネのグリッド）。送信するか判断するための閲覧用。
+class FolderPreviewPage extends StatefulWidget {
+  final Album album;
+  const FolderPreviewPage({super.key, required this.album});
+
+  @override
+  State<FolderPreviewPage> createState() => _FolderPreviewPageState();
+}
+
+class _FolderPreviewPageState extends State<FolderPreviewPage> {
+  List<AssetEntity> _assets = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    // プレビューは最大200件まで（判断には十分）。
+    final list =
+        await widget.album.path.getAssetListPaged(page: 0, size: 200);
+    if (!mounted) return;
+    setState(() {
+      _assets = list;
+      _loading = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.album.name),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(24),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Padding(
+              padding: const EdgeInsets.only(left: 16, bottom: 8),
+              child: Text('${widget.album.count} 件（プレビューは先頭200件）',
+                  style: const TextStyle(color: Colors.white70, fontSize: 12)),
+            ),
+          ),
+        ),
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _assets.isEmpty
+              ? const Center(child: Text('メディアがありません'))
+              : GridView.builder(
+                  padding: const EdgeInsets.all(2),
+                  gridDelegate:
+                      const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    mainAxisSpacing: 2,
+                    crossAxisSpacing: 2,
+                  ),
+                  itemCount: _assets.length,
+                  itemBuilder: (context, i) {
+                    final asset = _assets[i];
+                    return FutureBuilder(
+                      future: asset.thumbnailDataWithSize(
+                          const ThumbnailSize(200, 200)),
+                      builder: (context, snap) {
+                        if (snap.hasData && snap.data != null) {
+                          return Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              Image.memory(snap.data!, fit: BoxFit.cover),
+                              if (asset.type == AssetType.video)
+                                const Positioned(
+                                  right: 4,
+                                  bottom: 4,
+                                  child: Icon(Icons.videocam,
+                                      color: Colors.white, size: 18),
+                                ),
+                            ],
+                          );
+                        }
+                        return Container(color: Colors.grey.shade300);
+                      },
+                    );
+                  },
+                ),
     );
   }
 }
