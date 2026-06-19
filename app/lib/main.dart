@@ -373,21 +373,16 @@ class _HomePageState extends State<HomePage> {
     _showSnack(summary);
   }
 
-  /// 送信済みファイルをこの端末（Motorola）から削除する。
-  /// 安全のため、削除直前に1件ずつPixelへ存在確認し、確認できたものだけ消す。
-  /// 選択中があればその分、なければ送信済み全件が対象。
-  Future<void> _deleteSentFromDevice() async {
+  /// 指定したファイルをこの端末（Motorola）から削除する。
+  /// 安全のため、削除直前に1件ずつPixelへ受領確認し、確認できたものだけ消す。
+  Future<void> _deleteFromDevice(List<MediaItem> candidates) async {
     final server = _currentServer;
     if (server == null) {
       _showSnack('先に設定でPixelのサーバーを登録してください');
       return;
     }
-    // 対象：選択があればそれ、なければ送信済み全件
-    final candidates = _selected.isNotEmpty
-        ? _all.where((m) => _selected.contains(m.id)).toList()
-        : _all.where((m) => _sentIds.contains(m.id)).toList();
     if (candidates.isEmpty) {
-      _showSnack('削除対象がありません（送信済みファイルか、選択が必要）');
+      _showSnack('削除対象がありません');
       return;
     }
 
@@ -519,7 +514,8 @@ class _HomePageState extends State<HomePage> {
               } else if (v == 'fix_dates') {
                 _fixSentDates();
               } else if (v == 'delete_sent') {
-                _deleteSentFromDevice();
+                _deleteFromDevice(
+                    _all.where((m) => _sentIds.contains(m.id)).toList());
               }
             },
             itemBuilder: (_) => [
@@ -537,7 +533,7 @@ class _HomePageState extends State<HomePage> {
               ),
               const PopupMenuItem(
                 value: 'delete_sent',
-                child: Text('送信済みをこの端末から削除'),
+                child: Text('送信済みを全件この端末から削除'),
               ),
             ],
           ),
@@ -679,6 +675,51 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  /// 長押しで開く、選択中ファイルへの操作メニュー。
+  Future<void> _showSelectionActions() async {
+    final n = _selected.length;
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text('選択中: $n 件',
+                  style: Theme.of(context).textTheme.titleMedium),
+            ),
+            ListTile(
+              leading: const Icon(Icons.upload),
+              title: Text('選んだ $n 件をPixelに送信'),
+              onTap: () => Navigator.pop(context, 'send'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_forever, color: Colors.red),
+              title: Text('選んだ $n 件をこの端末から削除',
+                  style: const TextStyle(color: Colors.red)),
+              subtitle: const Text('Pixelが受領済みのものだけ消します'),
+              onTap: () => Navigator.pop(context, 'delete'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.clear),
+              title: const Text('選択をクリア'),
+              onTap: () => Navigator.pop(context, 'clear'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (action == 'delete') {
+      await _deleteFromDevice(
+          _all.where((m) => _selected.contains(m.id)).toList());
+    } else if (action == 'send') {
+      await _sendSelected();
+    } else if (action == 'clear') {
+      setState(() => _selected.clear());
+    }
+  }
+
   Widget _thumb(MediaItem item) {
     final selected = _selected.contains(item.id);
     final isSent = _sentIds.contains(item.id);
@@ -691,6 +732,11 @@ class _HomePageState extends State<HomePage> {
             _selected.add(item.id);
           }
         });
+      },
+      onLongPress: () {
+        // 長押し：未選択なら選択に加えてから、選択分の操作メニューを出す
+        setState(() => _selected.add(item.id));
+        _showSelectionActions();
       },
       child: Stack(
         fit: StackFit.expand,
