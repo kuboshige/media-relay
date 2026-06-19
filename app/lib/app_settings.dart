@@ -4,6 +4,20 @@ import 'package:shared_preferences/shared_preferences.dart';
 class AppSettings {
   static const _kReminderDays = 'reminderDays';
   static const _kLastSync = 'lastSyncEpochMs';
+  static const _kReceiverPort = 'receiverPort';
+
+  /// 受信モードの待ち受けポート（既定8765）。
+  static const int defaultReceiverPort = 8765;
+
+  static Future<int> receiverPort() async {
+    final p = await SharedPreferences.getInstance();
+    return p.getInt(_kReceiverPort) ?? defaultReceiverPort;
+  }
+
+  static Future<void> setReceiverPort(int port) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setInt(_kReceiverPort, port);
+  }
 
   /// 未送信リマインダーの間隔（日）。0 はオフ。既定3日。
   static const int defaultReminderDays = 3;

@@ -12,6 +12,7 @@ import 'folder_select_page.dart';
 import 'sent_store.dart';
 import 'history_page.dart';
 import 'notif_service.dart';
+import 'receiver_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -527,6 +528,9 @@ class _HomePageState extends State<HomePage> {
               } else if (v == 'delete_sent') {
                 _deleteFromDevice(
                     _all.where((m) => _sentIds.contains(m.id)).toList());
+              } else if (v == 'receiver') {
+                Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const ReceiverPage()));
               }
             },
             itemBuilder: (_) => [
@@ -545,6 +549,11 @@ class _HomePageState extends State<HomePage> {
               const PopupMenuItem(
                 value: 'delete_sent',
                 child: Text('送信済みを全件この端末から削除'),
+              ),
+              const PopupMenuDivider(),
+              const PopupMenuItem(
+                value: 'receiver',
+                child: Text('受信モード（この端末をサーバーに）'),
               ),
             ],
           ),
