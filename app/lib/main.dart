@@ -236,7 +236,8 @@ class _HomePageState extends State<HomePage> {
           status = 'skipped';
           detail = 'Pixelに既に存在';
         } else {
-          final res = await uploader.upload(file, item.relativePath);
+          final res = await uploader.upload(file, item.relativePath,
+              originalDateMs: item.createdAt.millisecondsSinceEpoch);
           if (res.ok) {
             done++;
             success = true;
@@ -304,6 +305,74 @@ class _HomePageState extends State<HomePage> {
     _showSnack(summary);
   }
 
+  /// 既に送信済みのファイルの「撮影日付」をPixel側で修正する（再転送なし）。
+  /// 書き込み時に今日の日付になってしまった分を、元の撮影日時に直す。
+  Future<void> _fixSentDates() async {
+    final server = _currentServer;
+    if (server == null) {
+      _showSnack('先に設定でPixelのサーバーを登録してください');
+      return;
+    }
+    final targets = _all.where((m) => _sentIds.contains(m.id)).toList();
+    if (targets.isEmpty) {
+      _showSnack('送信済みのファイルがありません');
+      return;
+    }
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('送信済みの日付を修正'),
+        content: Text('${targets.length} 件の撮影日付をPixel側で修正します'
+            '（再転送はしません）。よろしいですか？'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('キャンセル')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('修正')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+
+    final uploader = Uploader(server);
+    setState(() => _status = 'サーバー確認中…');
+    if (!await uploader.ping()) {
+      setState(() => _status = null);
+      _showSnack('Pixelに接続できません（${server.host}:${server.port}）');
+      return;
+    }
+
+    int fixed = 0;
+    int miss = 0;
+    await WakelockPlus.enable();
+    try {
+      for (var i = 0; i < targets.length; i++) {
+        final m = targets[i];
+        setState(() => _status = '日付を修正中 ${i + 1}/${targets.length}');
+        final r = await uploader.setDate(
+            m.relativePath, m.createdAt.millisecondsSinceEpoch);
+        if (r) {
+          fixed++;
+        } else {
+          miss++;
+        }
+      }
+      setState(() => _status = 'Pixelで再登録中…（Googleフォト用）');
+      await uploader.scan();
+    } finally {
+      await WakelockPlus.disable();
+    }
+
+    final summary = '日付修正: 成功 $fixed 件 / 対象外 $miss 件';
+    setState(() {
+      _status = null;
+      _lastResult = summary;
+    });
+    _showSnack(summary);
+  }
+
   void _showSnack(String msg) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
@@ -337,6 +406,8 @@ class _HomePageState extends State<HomePage> {
                 setState(() => _showSent = !_showSent);
               } else if (v == 'send_all') {
                 _sendAllUnsent();
+              } else if (v == 'fix_dates') {
+                _fixSentDates();
               }
             },
             itemBuilder: (_) => [
@@ -347,6 +418,10 @@ class _HomePageState extends State<HomePage> {
               const PopupMenuItem(
                 value: 'send_all',
                 child: Text('未送信をすべて送信'),
+              ),
+              const PopupMenuItem(
+                value: 'fix_dates',
+                child: Text('送信済みの日付を修正'),
               ),
             ],
           ),

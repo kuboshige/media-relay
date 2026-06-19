@@ -106,13 +106,39 @@ class Uploader {
     }
   }
 
+  /// 既に保存済みファイルの日付だけ後から修正する（再転送なし）。
+  Future<bool> setDate(String relativePath, int originalDateMs) async {
+    try {
+      final res = await http
+          .post(
+            Uri.parse('${server.baseUrl}/setdate'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'relativePath': relativePath,
+              'originalDate': originalDateMs,
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
+      if (res.statusCode != 200) return false;
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      return body['ok'] == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// 指定ファイルをアップロードする。
   /// [relativePath] はPixel側で再現するフォルダ構造（例: DCIM/Camera/x.jpg）
-  Future<UploadResult> upload(File file, String relativePath) async {
+  /// [originalDateMs] は元の撮影日時。Pixel側でファイル更新日時に反映する。
+  Future<UploadResult> upload(File file, String relativePath,
+      {int? originalDateMs}) async {
     try {
       final uri = Uri.parse('${server.baseUrl}/upload');
       final req = http.MultipartRequest('POST', uri);
       req.fields['relativePath'] = relativePath;
+      if (originalDateMs != null) {
+        req.fields['originalDate'] = originalDateMs.toString();
+      }
       req.files.add(await http.MultipartFile.fromPath('file', file.path,
           filename: p.basename(file.path)));
 

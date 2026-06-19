@@ -7,6 +7,8 @@ const { execFile } = require('child_process');
 
 const app = express();
 const PORT = process.env.PORT || 8765;
+// JSONボディを受ける（/setdate 用）
+app.use(express.json());
 
 // Termux環境では /sdcard/MediaRelay、それ以外はカレントの storage/
 const isTermux = !!(process.env.HOME && process.env.HOME.includes('com.termux'));
@@ -166,6 +168,11 @@ app.post('/upload', upload.single('file'), (req, res) => {
   // 書き込み
   fs.writeFileSync(destPath, req.file.buffer);
 
+  // 元の撮影日時をファイル更新日時に反映する（Googleフォトの日付対策）。
+  // 書き込み時刻（今日）になってしまうと、EXIF/ファイル名で日付を取れない
+  // ファイルが「今日の写真」として並んでしまうため。
+  applyOriginalDate(destPath, req.body.originalDate);
+
   const hash = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
   // インデックスが構築済みなら差分追加（再構築不要で即座に重複判定に反映）
   if (hashIndex) hashIndex.add(hash);
@@ -173,6 +180,35 @@ app.post('/upload', upload.single('file'), (req, res) => {
   console.log(`[upload] ${normalized} (${req.file.size} bytes, sha256=${hash})`);
 
   res.json({ ok: true, relativePath: normalized, sha256: hash, size: req.file.size });
+});
+
+// ファイル更新日時を元の撮影日時(ms)に設定する。失敗は無視。
+function applyOriginalDate(filePath, originalDateMs) {
+  const ms = parseInt(originalDateMs, 10);
+  if (isNaN(ms) || ms <= 0) return false;
+  try {
+    const t = ms / 1000; // 秒
+    fs.utimesSync(filePath, t, t);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// 既に保存済みファイルの日付だけ後から修正する（再転送せず日付対策）。
+// JSON: { relativePath, originalDate(ms) }
+app.post('/setdate', (req, res) => {
+  const { relativePath, originalDate } = req.body || {};
+  if (!relativePath) {
+    return res.status(400).json({ error: 'relativePath is required' });
+  }
+  const normalized = path.normalize(relativePath).replace(/^(\.\.(\/|\\|$))+/, '');
+  const destPath = path.join(STORAGE_ROOT, normalized);
+  if (!fs.existsSync(destPath)) {
+    return res.json({ ok: false, error: 'not found' });
+  }
+  const ok = applyOriginalDate(destPath, originalDate);
+  res.json({ ok });
 });
 
 // メディアスキャン：保存したファイルをAndroidのMediaStoreに登録する。
