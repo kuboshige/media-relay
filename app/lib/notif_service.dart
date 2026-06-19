@@ -68,7 +68,7 @@ class NotifService {
     await _plugin.zonedSchedule(
       _reminderId,
       'media-relay',
-      '$days日間 送信していません。未送信の写真をPixelへ送りましょう',
+      '$days日間 送信していません。未送信の写真を送信しましょう',
       fireAt,
       _details,
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,

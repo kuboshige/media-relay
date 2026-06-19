@@ -111,6 +111,9 @@ class _HomePageState extends State<HomePage> {
   int get _unsentCount =>
       _all.where((m) => !_sentIds.contains(m.id)).length;
 
+  /// 送信先の表示名。システムメッセージはこの名前を使う（「Pixel」固定にしない）。
+  String get _destName => _currentServer?.name ?? '送信先';
+
   ServerEntry? get _currentServer {
     if (_servers.isEmpty) return null;
     final i = _selectedServer.clamp(0, _servers.length - 1);
@@ -176,7 +179,7 @@ class _HomePageState extends State<HomePage> {
   Future<void> _send(List<MediaItem> targets) async {
     final server = _currentServer;
     if (server == null) {
-      _showSnack('先に設定でPixelのサーバーを登録してください');
+      _showSnack('先に設定で送信先サーバーを登録してください');
       return;
     }
 
@@ -184,7 +187,7 @@ class _HomePageState extends State<HomePage> {
     setState(() => _status = 'サーバー確認中…');
     if (!await uploader.ping()) {
       setState(() => _status = null);
-      _showSnack('Pixelに接続できません（${server.host}:${server.port}）');
+      _showSnack('${server.name}に接続できません（${server.host}:${server.port}）');
       return;
     }
 
@@ -198,7 +201,7 @@ class _HomePageState extends State<HomePage> {
     try {
       // クイックシェアで受信済みのファイルも検出できるよう、
       // 送信前にサーバーのハッシュ索引を最新化しておく。
-      setState(() => _status = 'Pixel側を照合準備中…（初回は時間がかかります）');
+      setState(() => _status = '${server.name}側を照合準備中…（初回は時間がかかります）');
       await uploader.reindex();
 
       for (var i = 0; i < targets.length; i++) {
@@ -242,7 +245,7 @@ class _HomePageState extends State<HomePage> {
           skipped++;
           success = true;
           status = 'skipped';
-          detail = 'Pixelに既に存在';
+          detail = '${server.name}に既に存在';
         } else {
           final res = await uploader.upload(file, item.relativePath,
               originalDateMs: item.createdAt.millisecondsSinceEpoch);
@@ -294,7 +297,7 @@ class _HomePageState extends State<HomePage> {
 
     // 送信したファイルをGoogleフォトに出すため、PixelのMediaStoreへ登録させる
     if (done > 0) {
-      setState(() => _status = 'Pixelで写真を登録中…（Googleフォト用）');
+      setState(() => _status = '${server.name}で写真を登録中…（Googleフォト用）');
       await uploader.scan();
     }
 
@@ -308,7 +311,7 @@ class _HomePageState extends State<HomePage> {
 
     final summary =
         '完了: 送信 $done 件 / スキップ $skipped 件 / 失敗 $failed 件'
-        '${stoppedForStorage ? '\n⚠️ Pixelの空き容量不足で中断しました' : ''}';
+        '${stoppedForStorage ? '\n⚠️ ${server.name}の空き容量不足で中断しました' : ''}';
     setState(() {
       _status = null;
       _selected.clear();
@@ -323,7 +326,7 @@ class _HomePageState extends State<HomePage> {
   Future<void> _fixSentDates() async {
     final server = _currentServer;
     if (server == null) {
-      _showSnack('先に設定でPixelのサーバーを登録してください');
+      _showSnack('先に設定で送信先サーバーを登録してください');
       return;
     }
     final targets = _all.where((m) => _sentIds.contains(m.id)).toList();
@@ -335,7 +338,7 @@ class _HomePageState extends State<HomePage> {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('送信済みの日付を修正'),
-        content: Text('${targets.length} 件の撮影日付をPixel側で修正します'
+        content: Text('${targets.length} 件の撮影日付を${server.name}側で修正します'
             '（再転送はしません）。よろしいですか？'),
         actions: [
           TextButton(
@@ -353,7 +356,7 @@ class _HomePageState extends State<HomePage> {
     setState(() => _status = 'サーバー確認中…');
     if (!await uploader.ping()) {
       setState(() => _status = null);
-      _showSnack('Pixelに接続できません（${server.host}:${server.port}）');
+      _showSnack('${server.name}に接続できません（${server.host}:${server.port}）');
       return;
     }
 
@@ -372,7 +375,7 @@ class _HomePageState extends State<HomePage> {
           miss++;
         }
       }
-      setState(() => _status = 'Pixelで再登録中…（Googleフォト用）');
+      setState(() => _status = '${server.name}で再登録中…（Googleフォト用）');
       await uploader.scan();
     } finally {
       await WakelockPlus.disable();
@@ -391,7 +394,7 @@ class _HomePageState extends State<HomePage> {
   Future<void> _deleteFromDevice(List<MediaItem> candidates) async {
     final server = _currentServer;
     if (server == null) {
-      _showSnack('先に設定でPixelのサーバーを登録してください');
+      _showSnack('先に設定で送信先サーバーを登録してください');
       return;
     }
     if (candidates.isEmpty) {
@@ -405,11 +408,11 @@ class _HomePageState extends State<HomePage> {
         title: const Text('この端末から削除'),
         content: Text(
           '${candidates.length} 件をこの端末から削除します。\n\n'
-          '・削除直前にPixelが受領済みか1件ずつ確認し、確認できたものだけ消します\n'
-          '  （Pixelで「空き容量を増やす」をしてディスクから消えていてもOK）\n'
-          '・Pixel（とGoogleフォト）側のコピーは残ります\n'
+          '・削除直前に${server.name}が受領済みか1件ずつ確認し、確認できたものだけ消します\n'
+          '  （${server.name}で「空き容量を増やす」をしてディスクから消えていてもOK）\n'
+          '・${server.name}（とGoogleフォトなどのクラウドBK）側のコピーは残ります\n'
           '・実行すると端末の削除確認ダイアログが出ます\n\n'
-          '※ Pixelのフォトへのバックアップ完了を確認してから実行してください',
+          '※ ${server.name}側のバックアップ完了を確認してから実行してください',
         ),
         actions: [
           TextButton(
@@ -428,7 +431,7 @@ class _HomePageState extends State<HomePage> {
     setState(() => _status = 'サーバー確認中…');
     if (!await uploader.ping()) {
       setState(() => _status = null);
-      _showSnack('Pixelに接続できません（${server.host}:${server.port}）');
+      _showSnack('${server.name}に接続できません（${server.host}:${server.port}）');
       return;
     }
 
@@ -442,7 +445,7 @@ class _HomePageState extends State<HomePage> {
         final m = candidates[i];
         setState(() =>
             _status =
-                'Pixel受領確認中 ${i + 1}/${candidates.length}: ${m.title}');
+                '${server.name}受領確認中 ${i + 1}/${candidates.length}: ${m.title}');
         final file = await m.originFile();
         if (file == null) {
           unconfirmed++;
@@ -466,7 +469,7 @@ class _HomePageState extends State<HomePage> {
 
     if (verified.isEmpty) {
       setState(() => _status = null);
-      _showSnack('Pixelが受領済みのファイルがありませんでした（削除中止）');
+      _showSnack('${server.name}が受領済みのファイルがありませんでした（削除中止）');
       return;
     }
 
@@ -711,14 +714,14 @@ class _HomePageState extends State<HomePage> {
             ),
             ListTile(
               leading: const Icon(Icons.upload),
-              title: Text('選んだ $n 件をPixelに送信'),
+              title: Text('選んだ $n 件を$_destNameに送信'),
               onTap: () => Navigator.pop(context, 'send'),
             ),
             ListTile(
               leading: const Icon(Icons.delete_forever, color: Colors.red),
               title: Text('選んだ $n 件をこの端末から削除',
                   style: const TextStyle(color: Colors.red)),
-              subtitle: const Text('Pixelが受領済みのものだけ消します'),
+              subtitle: Text('$_destNameが受領済みのものだけ消します'),
               onTap: () => Navigator.pop(context, 'delete'),
             ),
             ListTile(

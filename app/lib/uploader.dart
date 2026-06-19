@@ -153,7 +153,7 @@ class Uploader {
         return UploadResult(
             ok: false,
             insufficientStorage: true,
-            error: 'Pixelの空き容量が不足しています');
+            error: '${server.name}の空き容量が不足しています');
       }
       return UploadResult(ok: false, error: 'HTTP ${res.statusCode}: ${res.body}');
     } catch (e) {

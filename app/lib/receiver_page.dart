@@ -20,7 +20,7 @@ class ReceiverPage extends StatefulWidget {
 
 class _ReceiverPageState extends State<ReceiverPage> {
   RelayServer? _server;
-  String? _ip;
+  List<String> _ips = [];
   int _port = AppSettings.defaultReceiverPort;
   String? _storageRoot;
   String? _error;
@@ -58,7 +58,7 @@ class _ReceiverPageState extends State<ReceiverPage> {
       Directory(_storageRoot!).createSync(recursive: true);
       final server = RelayServer(storageRoot: _storageRoot!, port: _port);
       await server.start();
-      _ip = await RelayServer.localIp();
+      _ips = await RelayServer.localIps();
       await WakelockPlus.enable();
       setState(() {
         _server = server;
@@ -78,12 +78,35 @@ class _ReceiverPageState extends State<ReceiverPage> {
     setState(() => _server = null);
   }
 
+  Widget _ipRow(String ip) {
+    final addr = '$ip:$_port';
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          Expanded(
+            child: SelectableText(addr,
+                style: Theme.of(context).textTheme.titleLarge),
+          ),
+          IconButton(
+            icon: const Icon(Icons.copy),
+            tooltip: 'コピー',
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: addr));
+              ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('コピーしました')));
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final running = _server?.running ?? false;
-    final addr = (_ip != null) ? '$_ip:$_port' : '(IP取得中)';
     return Scaffold(
-      appBar: AppBar(title: const Text('受信モード（このPixelをサーバーに）')),
+      appBar: AppBar(title: const Text('受信モード（この端末をサーバーに）')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -106,28 +129,17 @@ class _ReceiverPageState extends State<ReceiverPage> {
                     ),
                     const SizedBox(height: 12),
                     const Text('送信側アプリにこのアドレスを登録:'),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: SelectableText(addr,
-                              style: Theme.of(context).textTheme.headlineSmall),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.copy),
-                          tooltip: 'コピー',
-                          onPressed: _ip == null
-                              ? null
-                              : () {
-                                  Clipboard.setData(
-                                      ClipboardData(text: addr));
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                          content: Text('コピーしました')));
-                                },
-                        ),
-                      ],
+                    const Text(
+                      '※ 送信側と同じWi-Fiの番号で始まるものを選んでください\n'
+                      '（複数出る場合、VPN等の別アドレスが混じります）',
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
                     ),
+                    const SizedBox(height: 4),
+                    if (_ips.isEmpty)
+                      const Text('(IP取得中)',
+                          style: TextStyle(fontStyle: FontStyle.italic))
+                    else
+                      for (final ip in _ips) _ipRow(ip),
                   ],
                 ),
               ),

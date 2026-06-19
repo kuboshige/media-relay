@@ -178,17 +178,41 @@ class RelayServer {
   String? _dispoValue(String cd, String key) =>
       RegExp('$key="([^"]*)"').firstMatch(cd)?.group(1);
 
-  /// 端末のLAN IP（最初の非ループバックIPv4）。表示用。
-  static Future<String?> localIp() async {
+  /// 端末のLAN候補IP（IPv4）を、Wi-Fi(wlan)優先で並べて返す。
+  /// Pixelには複数I/F（VPN/仮想等）があり得るので、送信側が選べるよう全部返す。
+  static Future<List<String>> localIps() async {
+    final out = <String>[];
     try {
-      final ifaces =
-          await NetworkInterface.list(type: InternetAddressType.IPv4);
+      final ifaces = await NetworkInterface.list(
+          type: InternetAddressType.IPv4, includeLinkLocal: false);
+      int score(NetworkInterface n) {
+        final name = n.name.toLowerCase();
+        if (name.contains('wlan')) return 0; // Wi-Fi 最優先
+        if (name.contains('eth')) return 1;
+        if (name.contains('tun') ||
+            name.contains('ppp') ||
+            name.startsWith('rmnet') ||
+            name.contains('dummy')) {
+          return 3; // VPN/モバイル/仮想は後回し
+        }
+        return 2;
+      }
+
+      ifaces.sort((a, b) => score(a).compareTo(score(b)));
       for (final i in ifaces) {
         for (final a in i.addresses) {
-          if (!a.isLoopback) return a.address;
+          if (!a.isLoopback && !a.isLinkLocal && !out.contains(a.address)) {
+            out.add(a.address);
+          }
         }
       }
     } catch (_) {}
-    return null;
+    return out;
+  }
+
+  /// 最有力のLAN IP（wlan優先の先頭）。表示用。
+  static Future<String?> localIp() async {
+    final ips = await localIps();
+    return ips.isEmpty ? null : ips.first;
   }
 }
