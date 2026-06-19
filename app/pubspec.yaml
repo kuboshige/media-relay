@@ -60,6 +60,10 @@ dependencies:
   mime: ^1.0.5
   # 受信ファイルの保存先ディレクトリ取得
   path_provider: ^2.1.4
+  # QRコード生成（受信側で接続情報を表示）
+  qr_flutter: ^4.1.0
+  # QRコード読み取り（送信側でカメラスキャン）
+  mobile_scanner: ^5.2.3
 
 dev_dependencies:
   flutter_test:

@@ -18,6 +18,35 @@ class ServerEntry {
         host: j['host'] as String,
         port: (j['port'] as num?)?.toInt() ?? 8765,
       );
+
+  /// 受信側QR/接続リンク（mediarelay://connect?host=..&port=..&name=..）。
+  static String buildConnectUri(
+          {required String host, required int port, required String name}) =>
+      Uri(
+        scheme: 'mediarelay',
+        host: 'connect',
+        queryParameters: {'host': host, 'port': '$port', 'name': name},
+      ).toString();
+
+  /// QR/リンク文字列から ServerEntry を作る。形式不正なら null。
+  static ServerEntry? fromConnectUri(String raw) {
+    Uri uri;
+    try {
+      uri = Uri.parse(raw.trim());
+    } catch (_) {
+      return null;
+    }
+    if (uri.scheme != 'mediarelay' || uri.host != 'connect') return null;
+    final host = uri.queryParameters['host'];
+    if (host == null || host.isEmpty) return null;
+    final port = int.tryParse(uri.queryParameters['port'] ?? '') ?? 8765;
+    final name = uri.queryParameters['name'];
+    return ServerEntry(
+      name: (name == null || name.isEmpty) ? host : name,
+      host: host,
+      port: port,
+    );
+  }
 }
 
 /// サーバー一覧と「現在選択中のサーバー」をSharedPreferencesに保存する

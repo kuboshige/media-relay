@@ -5,6 +5,18 @@ class AppSettings {
   static const _kReminderDays = 'reminderDays';
   static const _kLastSync = 'lastSyncEpochMs';
   static const _kReceiverPort = 'receiverPort';
+  static const _kDeviceName = 'deviceName';
+
+  /// この端末の表示名（受信モードのQRに載り、送信側に登録される名前）。
+  static Future<String> deviceName() async {
+    final p = await SharedPreferences.getInstance();
+    return p.getString(_kDeviceName) ?? 'メディアリレー受信機';
+  }
+
+  static Future<void> setDeviceName(String name) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setString(_kDeviceName, name);
+  }
 
   /// 受信モードの待ち受けポート（既定8765）。
   static const int defaultReceiverPort = 8765;

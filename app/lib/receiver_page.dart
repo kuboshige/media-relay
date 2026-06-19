@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'app_settings.dart';
 import 'relay_server.dart';
+import 'server_config.dart';
 
 /// 受信モード画面（この端末＝Pixelをサーバーにする）。
 ///
@@ -28,6 +30,7 @@ class _ReceiverPageState extends State<ReceiverPage> {
   String? _error;
   bool _busy = false;
   Timer? _refresh; // 受信カウンタを定期的に再描画する
+  String _deviceName = '';
 
   @override
   void initState() {
@@ -58,6 +61,7 @@ class _ReceiverPageState extends State<ReceiverPage> {
     });
     try {
       _port = await AppSettings.receiverPort();
+      _deviceName = await AppSettings.deviceName();
       _storageRoot = await _resolveStorageRoot();
       Directory(_storageRoot!).createSync(recursive: true);
       final server = RelayServer(storageRoot: _storageRoot!, port: _port);
@@ -101,6 +105,81 @@ class _ReceiverPageState extends State<ReceiverPage> {
     return _ips.length - real;
   }
 
+  // QRに載せる代表IP（表示中の先頭＝Wi-Fi優先）。
+  String? get _qrIp => _visibleIps.isEmpty ? null : _visibleIps.first.ip;
+
+  Future<void> _editName() async {
+    final ctrl = TextEditingController(text: _deviceName);
+    final name = await showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('この端末の名前'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          decoration: const InputDecoration(hintText: '例: 家のPixel'),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('キャンセル')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, ctrl.text.trim()),
+              child: const Text('保存')),
+        ],
+      ),
+    );
+    if (name != null && name.isNotEmpty) {
+      await AppSettings.setDeviceName(name);
+      setState(() => _deviceName = name);
+    }
+  }
+
+  Widget _qrCard(String ip) {
+    final data = ServerEntry.buildConnectUri(
+        host: ip, port: _port, name: _deviceName);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Flexible(
+                  child: Text('名前: $_deviceName',
+                      style: Theme.of(context).textTheme.titleMedium,
+                      overflow: TextOverflow.ellipsis),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.edit, size: 18),
+                  tooltip: '名前を変更',
+                  onPressed: _editName,
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Container(
+              color: Colors.white,
+              padding: const EdgeInsets.all(8),
+              child: QrImageView(
+                data: data,
+                version: QrVersions.auto,
+                size: 220,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              '送信側のメディアリレーで「QRで追加」して読み取ってください',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _ipRow(({String ip, String iface, bool wifi, bool virtual}) e) {
     final addr = '${e.ip}:$_port';
     final label = e.wifi ? 'Wi-Fi' : (e.virtual ? '${e.iface}(VPN等)' : e.iface);
@@ -139,7 +218,7 @@ class _ReceiverPageState extends State<ReceiverPage> {
     final running = _server?.running ?? false;
     return Scaffold(
       appBar: AppBar(title: const Text('受信モード（この端末をサーバーに）')),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -184,6 +263,8 @@ class _ReceiverPageState extends State<ReceiverPage> {
               ),
             ),
             const SizedBox(height: 12),
+            if (_qrIp != null) _qrCard(_qrIp!),
+            const SizedBox(height: 12),
             if (_storageRoot != null)
               Text('保存先: $_storageRoot',
                   style: Theme.of(context).textTheme.bodySmall),
@@ -196,7 +277,7 @@ class _ReceiverPageState extends State<ReceiverPage> {
               const SizedBox(height: 12),
               Text('エラー: $_error', style: const TextStyle(color: Colors.red)),
             ],
-            const Spacer(),
+            const SizedBox(height: 16),
             const Card(
               color: Color(0xFFFFF3E0),
               child: Padding(

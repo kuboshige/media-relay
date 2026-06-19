@@ -10,6 +10,8 @@
     <!-- 未送信リマインダー通知（Android 13+）と再起動後の予約復元 -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <!-- QRコード読み取り（送信側でカメラスキャン） -->
+    <uses-permission android:name="android.permission.CAMERA"/>
 
     <application
         android:label="media_relay"

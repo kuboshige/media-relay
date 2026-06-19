@@ -3,6 +3,7 @@ import 'server_config.dart';
 import 'uploader.dart';
 import 'app_settings.dart';
 import 'notif_service.dart';
+import 'qr_scan_page.dart';
 
 /// Pixelサーバーの登録・選択画面（家・職場など複数登録できる）
 class SettingsPage extends StatefulWidget {
@@ -85,6 +86,20 @@ class _SettingsPageState extends State<SettingsPage> {
     await _persist();
   }
 
+  Future<void> _addFromQr() async {
+    final entry = await Navigator.push<ServerEntry>(
+        context, MaterialPageRoute(builder: (_) => const QrScanPage()));
+    if (entry == null) return;
+    setState(() {
+      _servers.add(entry);
+      _selected = _servers.length - 1;
+    });
+    await _persist();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('追加: ${entry.name} (${entry.host}:${entry.port})')));
+  }
+
   Future<void> _delete(int index) async {
     setState(() {
       _servers.removeAt(index);
@@ -107,7 +122,16 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('設定')),
+      appBar: AppBar(
+        title: const Text('設定'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.qr_code_scanner),
+            tooltip: 'QRで送信先を追加',
+            onPressed: _addFromQr,
+          ),
+        ],
+      ),
       body: Column(
         children: [
           _reminderTile(),
