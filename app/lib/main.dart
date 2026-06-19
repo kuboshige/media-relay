@@ -397,7 +397,8 @@ class _HomePageState extends State<HomePage> {
         title: const Text('この端末から削除'),
         content: Text(
           '${candidates.length} 件をこの端末から削除します。\n\n'
-          '・削除直前にPixelに存在することを1件ずつ確認し、確認できたものだけ消します\n'
+          '・削除直前にPixelが受領済みか1件ずつ確認し、確認できたものだけ消します\n'
+          '  （Pixelで「空き容量を増やす」をしてディスクから消えていてもOK）\n'
           '・Pixel（とGoogleフォト）側のコピーは残ります\n'
           '・実行すると端末の削除確認ダイアログが出ます\n\n'
           '※ Pixelのフォトへのバックアップ完了を確認してから実行してください',

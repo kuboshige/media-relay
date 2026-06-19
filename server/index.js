@@ -44,12 +44,48 @@ function freeBytes() {
   }
 }
 
-// ---- SHA256ハッシュ・インデックス（重複判定の高速化） ----
-// 対象フォルダ配下を一度だけ走査してSHA256の集合を作りメモリに保持する。
-// アップロード時は差分追加、POST /reindex で再構築できる。
+// ---- 受領台帳（永続）＋ ディスク索引 ----
+// 「Pixelが一度でも受け取った／見たことのある内容ハッシュ」を永続ファイルに
+// 記録する。Googleフォトの「空き容量を増やす」でPixelのディスクから実ファイルが
+// 消えても、すでにバックアップ済み＝受領済みと判定できるようにするため。
+// （ディスク走査だけだと、空き容量確保で消えたファイルが /exists で false になり、
+//  ① 再送時に重複アップロード ② Motorola側の元ファイルが削除できない、が起きる）
+//
+// seenHashes は「台帳 ∪ ディスク走査で見つけたハッシュ」の和集合で、決して縮まない。
+const STATE_DIR = process.env.STATE_DIR || path.join(STORAGE_ROOT, '.state');
+const LEDGER_PATH = path.join(STATE_DIR, 'received-hashes.txt');
+fs.mkdirSync(STATE_DIR, { recursive: true });
 
-let hashIndex = null; // Set<string> | null
-let building = null; // Promise | null
+let seenHashes = null; // Set<string> | null（受領台帳＋ディスク走査の和）
+let scanned = false; // 起動後に一度ディスク走査を終えたか
+let scanning = null; // Promise | null
+
+// 台帳ファイルを読み込んで Set を作る（初回や未作成時は空）。
+function loadLedger() {
+  const set = new Set();
+  try {
+    const data = fs.readFileSync(LEDGER_PATH, 'utf8');
+    for (const line of data.split('\n')) {
+      const h = line.trim();
+      if (/^[a-f0-9]{64}$/.test(h)) set.add(h);
+    }
+  } catch {
+    /* 未作成は無視 */
+  }
+  return set;
+}
+
+// ハッシュを記憶する。新規なら台帳へ追記する（実ファイルが消えても残る）。
+function rememberHash(hash) {
+  if (!seenHashes) seenHashes = loadLedger();
+  if (seenHashes.has(hash)) return;
+  seenHashes.add(hash);
+  try {
+    fs.appendFileSync(LEDGER_PATH, hash + '\n');
+  } catch (e) {
+    console.error('[ledger] append failed:', e.message);
+  }
+}
 
 function* walkFiles(dir) {
   let entries;
@@ -59,6 +95,9 @@ function* walkFiles(dir) {
     return; // 存在しない/権限なしは無視
   }
   for (const entry of entries) {
+    // 隠しファイル/フォルダ（.state の台帳や .thumbnails 等）は対象外。
+    // 台帳ファイル自身をハッシュして台帳が自己増殖するのを防ぐ。
+    if (entry.name.startsWith('.')) continue;
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       yield* walkFiles(full);
@@ -79,57 +118,72 @@ function sha256OfFileStream(filePath) {
   });
 }
 
-async function buildIndex() {
-  const idx = new Set();
+// ディスクを走査して、見つかったハッシュをすべて台帳に記憶する（縮まない）。
+async function scanDisk() {
+  if (!seenHashes) seenHashes = loadLedger();
   let count = 0;
+  let added = 0;
   const start = Date.now();
   for (const root of SCAN_DIRS) {
     for (const file of walkFiles(root)) {
       const hex = await sha256OfFileStream(file);
       if (hex) {
-        idx.add(hex);
         count++;
+        if (!seenHashes.has(hex)) {
+          rememberHash(hex);
+          added++;
+        }
       }
     }
   }
-  hashIndex = idx;
   const sec = ((Date.now() - start) / 1000).toFixed(1);
-  console.log(`[index] built: ${count} files / ${idx.size} unique hashes in ${sec}s`);
+  console.log(`[index] scanned ${count} files, +${added} new, total ${seenHashes.size} hashes in ${sec}s`);
   console.log(`[index] dirs: ${SCAN_DIRS.join(', ')}`);
-  return idx;
+  return seenHashes;
 }
 
-function ensureIndex() {
-  if (hashIndex) return Promise.resolve(hashIndex);
-  if (!building) {
-    building = buildIndex().finally(() => {
-      building = null;
-    });
+// 起動後に最低一度はディスク走査を済ませる（台帳に無い既存ファイルを取り込む）。
+function ensureScanned() {
+  if (scanned) return Promise.resolve(seenHashes);
+  if (!scanning) {
+    scanning = scanDisk()
+      .then((s) => {
+        scanned = true;
+        return s;
+      })
+      .finally(() => {
+        scanning = null;
+      });
   }
-  return building;
+  return scanning;
 }
 
-// ファイル存在確認（SHA256照合）。インデックス未構築なら構築完了を待つ。
+// 受領確認（SHA256照合）。
+// 「Pixelが一度でも受け取った／見た」内容なら true。実ファイルがディスクに
+// 今あるかどうかは問わない（空き容量確保で消えていても受領済みなら true）。
 app.get('/exists', async (req, res) => {
   const { hash } = req.query;
   if (!hash || !/^[a-f0-9]{64}$/.test(hash)) {
     return res.status(400).json({ error: 'invalid hash' });
   }
   try {
-    const idx = await ensureIndex();
-    res.json({ exists: idx.has(hash) });
+    if (!seenHashes) seenHashes = loadLedger();
+    // 台帳に有れば即 true。無ければ初回だけディスク走査して既存分を取り込む。
+    if (seenHashes.has(hash)) return res.json({ exists: true });
+    await ensureScanned();
+    res.json({ exists: seenHashes.has(hash) });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// インデックス再構築（クイックシェアで新たに受信したファイルを取り込む）
+// 索引再構築（クイックシェア等の新規受信を取り込む）。台帳は消さず和集合を更新。
 app.post('/reindex', async (req, res) => {
-  hashIndex = null;
-  building = null;
+  scanned = false;
+  scanning = null;
   try {
-    const idx = await ensureIndex();
-    res.json({ ok: true, count: idx.size, dirs: SCAN_DIRS });
+    const s = await ensureScanned();
+    res.json({ ok: true, count: s.size, dirs: SCAN_DIRS });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -174,8 +228,8 @@ app.post('/upload', upload.single('file'), (req, res) => {
   applyOriginalDate(destPath, req.body.originalDate);
 
   const hash = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
-  // インデックスが構築済みなら差分追加（再構築不要で即座に重複判定に反映）
-  if (hashIndex) hashIndex.add(hash);
+  // 受領台帳に永続記録（実ファイルが後で消えても受領済みと判定できる）
+  rememberHash(hash);
 
   console.log(`[upload] ${normalized} (${req.file.size} bytes, sha256=${hash})`);
 
@@ -243,6 +297,8 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`media-relay server listening on port ${PORT}`);
   console.log(`storage: ${STORAGE_ROOT}`);
   console.log(`scan dirs: ${SCAN_DIRS.join(', ')}`);
-  // 起動時にバックグラウンドでインデックスを構築しておく
-  ensureIndex().catch((e) => console.error('[index] build error:', e.message));
+  // 起動時に台帳を読み込み、バックグラウンドでディスク走査も済ませておく
+  seenHashes = loadLedger();
+  console.log(`[ledger] loaded ${seenHashes.size} hashes from ${LEDGER_PATH}`);
+  ensureScanned().catch((e) => console.error('[index] scan error:', e.message));
 });
