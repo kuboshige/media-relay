@@ -191,35 +191,49 @@ class RelayServer {
   String? _dispoValue(String cd, String key) =>
       RegExp('$key="([^"]*)"').firstMatch(cd)?.group(1);
 
-  /// 端末のLAN候補IP（IPv4）を、Wi-Fi(wlan)優先で並べて返す。
-  /// Pixelには複数I/F（VPN/仮想等）があり得るので、送信側が選べるよう全部返す。
-  /// 各候補にインターフェイス名と「Wi-Fiか」も付ける（謎IPの判別用）。
-  static Future<List<({String ip, String iface, bool wifi})>> localIps() async {
-    final out = <({String ip, String iface, bool wifi})>[];
+  /// 端末のIPv4候補。Wi-Fi(wlan)優先で並べ、各候補に
+  /// インターフェイス名・Wi-Fiか・「仮想(VPN等)か」を付ける。
+  /// VPNのtunや携帯のrmnet等は他端末から到達できないので virtual=true とし、
+  /// 既定の表示やQRからは除外できるようにする。
+  static Future<List<({String ip, String iface, bool wifi, bool virtual})>>
+      localIps() async {
+    final out = <({String ip, String iface, bool wifi, bool virtual})>[];
     try {
       final ifaces = await NetworkInterface.list(
           type: InternetAddressType.IPv4, includeLinkLocal: false);
-      int score(NetworkInterface n) {
-        final name = n.name.toLowerCase();
-        if (name.contains('wlan')) return 0; // Wi-Fi 最優先
-        if (name.contains('eth')) return 1;
-        if (name.contains('tun') ||
-            name.contains('ppp') ||
-            name.startsWith('rmnet') ||
-            name.contains('dummy')) {
-          return 3; // VPN/モバイル/仮想は後回し
-        }
-        return 2;
+
+      bool isWifi(String name) => name.toLowerCase().contains('wlan');
+      // LANとして他端末から到達可能なI/Fか（Wi-Fi/有線/テザリング）。
+      bool isLan(String name) {
+        final n = name.toLowerCase();
+        return n.contains('wlan') ||
+            n.contains('eth') ||
+            n.contains('usb') ||
+            n.contains('rndis') ||
+            n.startsWith('ap'); // テザリングAP
+      }
+
+      int score(NetworkInterface i) {
+        final n = i.name.toLowerCase();
+        if (n.contains('wlan')) return 0;
+        if (isLan(i.name)) return 1;
+        return 3; // tun/ppp/rmnet/vpn など仮想は後回し
       }
 
       ifaces.sort((a, b) => score(a).compareTo(score(b)));
       for (final i in ifaces) {
-        final wifi = i.name.toLowerCase().contains('wlan');
+        final wifi = isWifi(i.name);
+        final virtual = !isLan(i.name);
         for (final a in i.addresses) {
           if (!a.isLoopback &&
               !a.isLinkLocal &&
               !out.any((e) => e.ip == a.address)) {
-            out.add((ip: a.address, iface: i.name, wifi: wifi));
+            out.add((
+              ip: a.address,
+              iface: i.name,
+              wifi: wifi,
+              virtual: virtual,
+            ));
           }
         }
       }
@@ -227,9 +241,11 @@ class RelayServer {
     return out;
   }
 
-  /// 最有力のLAN IP（wlan優先の先頭）。表示用。
+  /// QR/自動設定に使う「最有力の到達可能なLAN IP」。仮想を除いた先頭。
   static Future<String?> localIp() async {
     final ips = await localIps();
-    return ips.isEmpty ? null : ips.first.ip;
+    final real = ips.where((e) => !e.virtual).toList();
+    final pick = real.isNotEmpty ? real : ips;
+    return pick.isEmpty ? null : pick.first.ip;
   }
 }

@@ -21,7 +21,8 @@ class ReceiverPage extends StatefulWidget {
 
 class _ReceiverPageState extends State<ReceiverPage> {
   RelayServer? _server;
-  List<({String ip, String iface, bool wifi})> _ips = [];
+  List<({String ip, String iface, bool wifi, bool virtual})> _ips = [];
+  bool _showAllIps = false; // VPN/仮想アドレスも表示するか
   int _port = AppSettings.defaultReceiverPort;
   String? _storageRoot;
   String? _error;
@@ -86,16 +87,29 @@ class _ReceiverPageState extends State<ReceiverPage> {
     setState(() => _server = null);
   }
 
-  Widget _ipRow(({String ip, String iface, bool wifi}) e) {
+  // 既定では到達可能なLAN(非仮想)だけ表示。LANが無ければ全部出す（取りこぼし防止）。
+  List<({String ip, String iface, bool wifi, bool virtual})> get _visibleIps {
+    if (_showAllIps) return _ips;
+    final real = _ips.where((e) => !e.virtual).toList();
+    return real.isEmpty ? _ips : real;
+  }
+
+  int get _hiddenVirtualCount {
+    if (_showAllIps) return 0;
+    final real = _ips.where((e) => !e.virtual).length;
+    if (real == 0) return 0; // 仮想しか無い時は全部表示中なので隠れていない
+    return _ips.length - real;
+  }
+
+  Widget _ipRow(({String ip, String iface, bool wifi, bool virtual}) e) {
     final addr = '${e.ip}:$_port';
-    final label = e.wifi ? 'Wi-Fi' : e.iface;
+    final label = e.wifi ? 'Wi-Fi' : (e.virtual ? '${e.iface}(VPN等)' : e.iface);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         children: [
           Chip(
-            label: Text(label,
-                style: const TextStyle(fontSize: 11)),
+            label: Text(label, style: const TextStyle(fontSize: 11)),
             backgroundColor:
                 e.wifi ? Colors.green.shade100 : Colors.orange.shade100,
             visualDensity: VisualDensity.compact,
@@ -147,17 +161,24 @@ class _ReceiverPageState extends State<ReceiverPage> {
                     ),
                     const SizedBox(height: 12),
                     const Text('送信側アプリにこのアドレスを登録:'),
-                    const Text(
-                      '※ 送信側と同じWi-Fiの番号で始まるものを選んでください\n'
-                      '（複数出る場合、VPN等の別アドレスが混じります）',
-                      style: TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
                     const SizedBox(height: 4),
                     if (_ips.isEmpty)
                       const Text('(IP取得中)',
                           style: TextStyle(fontStyle: FontStyle.italic))
-                    else
-                      for (final ip in _ips) _ipRow(ip),
+                    else ...[
+                      for (final ip in _visibleIps) _ipRow(ip),
+                      if (_hiddenVirtualCount > 0)
+                        TextButton.icon(
+                          onPressed: () =>
+                              setState(() => _showAllIps = !_showAllIps),
+                          icon: Icon(_showAllIps
+                              ? Icons.visibility_off
+                              : Icons.visibility),
+                          label: Text(_showAllIps
+                              ? 'VPN等のアドレスを隠す'
+                              : 'VPN等のアドレスも表示 ($_hiddenVirtualCount)'),
+                        ),
+                    ],
                   ],
                 ),
               ),
