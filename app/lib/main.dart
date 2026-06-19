@@ -428,7 +428,8 @@ class _HomePageState extends State<HomePage> {
       for (var i = 0; i < candidates.length; i++) {
         final m = candidates[i];
         setState(() =>
-            _status = 'クラウド確認中 ${i + 1}/${candidates.length}: ${m.title}');
+            _status =
+                'Pixel受領確認中 ${i + 1}/${candidates.length}: ${m.title}');
         final file = await m.originFile();
         if (file == null) {
           unconfirmed++;
@@ -452,7 +453,7 @@ class _HomePageState extends State<HomePage> {
 
     if (verified.isEmpty) {
       setState(() => _status = null);
-      _showSnack('Pixelで存在を確認できたファイルがありませんでした（削除中止）');
+      _showSnack('Pixelが受領済みのファイルがありませんでした（削除中止）');
       return;
     }
 
