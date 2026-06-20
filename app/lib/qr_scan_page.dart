@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'server_config.dart';
@@ -12,15 +13,24 @@ class QrScanPage extends StatefulWidget {
 
 class _QrScanPageState extends State<QrScanPage> {
   final MobileScannerController _controller = MobileScannerController();
+  StreamSubscription<BarcodeCapture>? _sub;
   bool _handled = false;
 
   @override
+  void initState() {
+    super.initState();
+    _sub = _controller.barcodes.listen(_onCapture);
+    unawaited(_controller.start());
+  }
+
+  @override
   void dispose() {
+    _sub?.cancel();
     _controller.dispose();
     super.dispose();
   }
 
-  void _onDetect(BarcodeCapture capture) {
+  void _onCapture(BarcodeCapture capture) {
     if (_handled) return;
     for (final b in capture.barcodes) {
       final raw = b.rawValue;
@@ -42,7 +52,6 @@ class _QrScanPageState extends State<QrScanPage> {
         children: [
           MobileScanner(
             controller: _controller,
-            onDetect: _onDetect,
             // カメラが起動できない理由を画面に出す（黒画面＋!の原因特定用）
             errorBuilder: (context, error, child) {
               return Center(
@@ -64,7 +73,7 @@ class _QrScanPageState extends State<QrScanPage> {
                       ),
                       const SizedBox(height: 16),
                       FilledButton.icon(
-                        onPressed: () => _controller.start(),
+                        onPressed: () => unawaited(_controller.start()),
                         icon: const Icon(Icons.refresh),
                         label: const Text('再試行'),
                       ),
