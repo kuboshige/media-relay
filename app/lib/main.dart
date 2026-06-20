@@ -53,7 +53,7 @@ class _HomePageState extends State<HomePage> {
   List<ServerEntry> _servers = [];
   int _selectedServer = 0;
   String? _status;
-  int _lastProgressMb = -1; // 送信進捗の表示更新スロットル用
+  int _lastProgressTs = 0; // 送信進捗の表示更新スロットル用（約1秒間隔）
   String? _lastResult; // 直近の送信結果（消えずに残す）
   int? _freeBytes; // Pixelの空き容量
 
@@ -256,18 +256,18 @@ class _HomePageState extends State<HomePage> {
               ? await uploader.uploadRaw(file, item.relativePath,
                   originalDateMs: item.createdAt.millisecondsSinceEpoch,
                   onProgress: (sent, total) {
-                  final mb = sent >> 20;
-                  if (mb != _lastProgressMb) {
-                    _lastProgressMb = mb;
-                    final s = (sent / 1048576).toStringAsFixed(1);
-                    final t = (total / 1048576).toStringAsFixed(1);
-                    setState(() => _status =
-                        '送信中 ${i + 1}/${targets.length}: ${item.title}  $s/$t MB');
-                  }
+                  // 約1秒間隔に間引く（毎MBの全画面再描画＝チラつき防止）
+                  final now = DateTime.now().millisecondsSinceEpoch;
+                  if (sent < total && now - _lastProgressTs < 1000) return;
+                  _lastProgressTs = now;
+                  final s = (sent / 1048576).toStringAsFixed(1);
+                  final t = (total / 1048576).toStringAsFixed(1);
+                  setState(() => _status =
+                      '送信中 ${i + 1}/${targets.length}: ${item.title}  $s/$t MB');
                 })
               : await uploader.upload(file, item.relativePath,
                   originalDateMs: item.createdAt.millisecondsSinceEpoch);
-          _lastProgressMb = -1;
+          _lastProgressTs = 0;
           if (res.ok) {
             done++;
             success = true;
@@ -321,13 +321,21 @@ class _HomePageState extends State<HomePage> {
       await uploader.scan();
     }
 
-    // 送信が行われたら、未送信リマインダーを次回へ先送りする
+    // 送信が行われたら、未送信リマインダーを次回へ先送りする。
+    // ここがハングしても送信完了表示が止まらないよう、必ず時間制限で抜ける。
     if (done > 0 || skipped > 0) {
-      await NotifService.markSynced();
+      try {
+        await NotifService.markSynced().timeout(const Duration(seconds: 5));
+      } catch (_) {}
     }
 
-    // 空き容量を更新表示
-    final si = await uploader.info();
+    // 空き容量を更新表示（失敗・タイムアウトしても完了処理は進める）
+    ServerInfo? si;
+    try {
+      si = await uploader.info();
+    } catch (_) {
+      si = null;
+    }
 
     final summary =
         '完了: 送信 $done 件 / スキップ $skipped 件 / 失敗 $failed 件'
