@@ -30,6 +30,10 @@ class _ReceiverPageState extends State<ReceiverPage> {
   String? _storageRoot;
   String? _error;
   bool _busy = false;
+  bool _migrating = false;
+  int _migrateTotal = 0;
+  int _migrateDone = 0;
+  int _migrateFailed = 0;
   Timer? _refresh; // 受信カウンタを定期的に再描画する
   String _deviceName = '';
 
@@ -93,6 +97,78 @@ class _ReceiverPageState extends State<ReceiverPage> {
         _busy = false;
       });
     }
+  }
+
+  /// プライベートストレージの既存受信ファイルを MediaStore（Googleフォト）に一括登録する。
+  /// 登録成功したファイルはプライベート領域から削除し、重複を防ぐ。
+  Future<void> _migrateToMediaStore() async {
+    if (_storageRoot == null || _migrating) return;
+
+    final dir = Directory(_storageRoot!);
+    if (!dir.existsSync()) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('保存フォルダが見つかりません')));
+      return;
+    }
+
+    final files = dir
+        .listSync(recursive: true, followLinks: false)
+        .whereType<File>()
+        .where((f) => !p.split(f.path).contains('.state'))
+        .toList();
+
+    if (files.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('登録するファイルがありません')));
+      return;
+    }
+
+    setState(() {
+      _migrating = true;
+      _migrateTotal = files.length;
+      _migrateDone = 0;
+      _migrateFailed = 0;
+    });
+
+    for (final file in files) {
+      final relPath = p.relative(file.path, from: _storageRoot!);
+      final dateMs = file.lastModifiedSync().millisecondsSinceEpoch;
+      final uri = await MediaStore.insertFile(
+        sourcePath: file.path,
+        relativePath: relPath,
+        originalDateMs: dateMs,
+      );
+      if (uri != null) {
+        try {
+          file.deleteSync();
+        } catch (_) {}
+        setState(() => _migrateDone++);
+      } else {
+        setState(() => _migrateFailed++);
+      }
+    }
+
+    final ok = _migrateDone;
+    final fail = _migrateFailed;
+    setState(() => _migrating = false);
+
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Googleフォト登録完了'),
+        content: Text(fail == 0
+            ? '$ok 件をGoogleフォトに登録しました'
+            : '$ok 件登録成功、$fail 件失敗'),
+        actions: [
+          FilledButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK')),
+        ],
+      ),
+    );
   }
 
   Future<void> _stop() async {
@@ -328,6 +404,25 @@ class _ReceiverPageState extends State<ReceiverPage> {
               icon: Icon(running ? Icons.stop : Icons.play_arrow),
               label: Text(running ? '受信を停止' : '受信を開始'),
             ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: (_busy || _migrating) ? null : _migrateToMediaStore,
+              icon: const Icon(Icons.photo_library_outlined),
+              label: const Text('既存ファイルをGoogleフォトに登録'),
+            ),
+            if (_migrating) ...[
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2)),
+                  const SizedBox(width: 10),
+                  Text('登録中… $_migrateDone / $_migrateTotal 件'),
+                ],
+              ),
+            ],
           ],
         ),
       ),
