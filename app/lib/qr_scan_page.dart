@@ -77,6 +77,11 @@ class _QrScanPageState extends State<QrScanPage> {
                         icon: const Icon(Icons.refresh),
                         label: const Text('再試行'),
                       ),
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('戻る（設定の「＋」でIPを手入力できます）'),
+                      ),
                     ],
                   ),
                 ),

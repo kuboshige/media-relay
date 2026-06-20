@@ -139,43 +139,50 @@ class Uploader {
   }
 
   /// 生バイト直接アップロード（アプリ内受信向け・multipart不使用）。
+  /// dart:io の HttpClient を直接使う（http パッケージの StreamedRequest だと
+  /// 大きいファイルでレスポンス待ちが返ってこないため）。
   /// [onProgress] で送信バイト数を通知する。
   Future<UploadResult> uploadRaw(File file, String relativePath,
-      {int? originalDateMs, void Function(int sent, int total)? onProgress}) async {
+      {int? originalDateMs,
+      void Function(int sent, int total)? onProgress}) async {
+    final client = HttpClient();
     try {
       final total = await file.length();
       var sent = 0;
       final uri = Uri.parse('${server.baseUrl}/upload-raw');
-      final req = http.StreamedRequest('POST', uri);
-      req.headers['x-relative-path'] = base64.encode(utf8.encode(relativePath));
+      final request = await client.postUrl(uri);
+      request.headers
+          .set('x-relative-path', base64.encode(utf8.encode(relativePath)));
       if (originalDateMs != null) {
-        req.headers['x-original-date'] = '$originalDateMs';
+        request.headers.set('x-original-date', '$originalDateMs');
       }
-      req.headers['content-type'] = 'application/octet-stream';
-      req.contentLength = total;
+      request.headers.contentType =
+          ContentType('application', 'octet-stream');
+      request.contentLength = total;
 
-      final respFut = req.send();
-      // バックプレッシャー付きで本文を流す
-      await req.sink.addStream(file.openRead().map((chunk) {
+      // バックプレッシャー付きで本文を流す（送信バイトを進捗通知）
+      await request.addStream(file.openRead().map((chunk) {
         sent += chunk.length;
         onProgress?.call(sent, total);
         return chunk;
       }));
-      await req.sink.close();
 
-      final streamed = await respFut.timeout(const Duration(minutes: 30));
-      final res = await http.Response.fromStream(streamed);
-      if (res.statusCode == 200) return UploadResult(ok: true);
-      if (res.statusCode == 507) {
+      final response =
+          await request.close().timeout(const Duration(minutes: 30));
+      final body = await response.transform(utf8.decoder).join();
+      if (response.statusCode == 200) return UploadResult(ok: true);
+      if (response.statusCode == 507) {
         return UploadResult(
             ok: false,
             insufficientStorage: true,
             error: '${server.name}の空き容量が不足しています');
       }
       return UploadResult(
-          ok: false, error: 'HTTP ${res.statusCode}: ${res.body}');
+          ok: false, error: 'HTTP ${response.statusCode}: $body');
     } catch (e) {
       return UploadResult(ok: false, error: e.toString());
+    } finally {
+      client.close();
     }
   }
 
