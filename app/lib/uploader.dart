@@ -33,6 +33,10 @@ class ServerInfo {
 
   /// /scan を呼ぶべきか（未指定の旧実装は従来通り呼ぶ）。
   bool get supportsMediaScan => mediaScan ?? true;
+
+  /// termux-api のセットアップが必要な状態か
+  /// （nodeサーバーだが mediaScan が false = termux-api 未導入）。
+  bool get needsScanSetup => !app && mediaScan == false;
 }
 
 /// Pixelサーバーへファイルを送るクライアント
@@ -103,17 +107,18 @@ class Uploader {
   }
 
   /// 保存済みファイルをAndroidのMediaStoreに登録させる（Googleフォト用）。
-  /// termux-api 未導入なら false。
-  Future<bool> scan() async {
+  /// 成功時は null、失敗時はユーザー向けヒント文字列を返す。
+  Future<String?> scan() async {
     try {
       final res = await http
           .post(Uri.parse('${server.baseUrl}/scan'))
           .timeout(const Duration(minutes: 5));
-      if (res.statusCode != 200) return false;
+      if (res.statusCode != 200) return 'HTTP ${res.statusCode}';
       final body = jsonDecode(res.body) as Map<String, dynamic>;
-      return body['ok'] == true;
-    } catch (_) {
-      return false;
+      if (body['ok'] == true) return null;
+      return (body['hint'] as String?) ?? (body['error'] as String?) ?? 'スキャン失敗';
+    } catch (e) {
+      return e.toString();
     }
   }
 

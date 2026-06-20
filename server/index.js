@@ -3,7 +3,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
-const { execFile } = require('child_process');
+const { execFile, execSync } = require('child_process');
 
 const app = express();
 const PORT = process.env.PORT || 8765;
@@ -42,6 +42,19 @@ function freeBytes() {
   } catch {
     return null;
   }
+}
+
+// termux-media-scan が使えるか（起動時に一度だけ確認）。
+let _mediaScanAvail;
+function mediaScanAvailable() {
+  if (_mediaScanAvail !== undefined) return _mediaScanAvail;
+  try {
+    execSync('which termux-media-scan', { timeout: 2000, stdio: 'ignore' });
+    _mediaScanAvail = true;
+  } catch {
+    _mediaScanAvail = false;
+  }
+  return _mediaScanAvail;
 }
 
 // ---- 受領台帳（永続）＋ ディスク索引 ----
@@ -290,6 +303,7 @@ app.get('/ping', (req, res) => {
     storageRoot: STORAGE_ROOT,
     scanDirs: SCAN_DIRS,
     freeBytes: freeBytes(),
+    mediaScan: mediaScanAvailable(),
   });
 });
 

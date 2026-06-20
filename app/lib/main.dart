@@ -203,11 +203,6 @@ class _HomePageState extends State<HomePage> {
     // 送信中は画面を消さない（スリープで止まるのを防ぐ）
     await WakelockPlus.enable();
     try {
-      // クイックシェアで受信済みのファイルも検出できるよう、
-      // 送信前にサーバーのハッシュ索引を最新化しておく。
-      setState(() => _status = '${server.name}側を照合準備中…（初回は時間がかかります）');
-      await uploader.reindex();
-
       for (var i = 0; i < targets.length; i++) {
         final item = targets[i];
         setState(() =>
@@ -316,9 +311,15 @@ class _HomePageState extends State<HomePage> {
 
     // 送信したファイルをGoogleフォトに出すため、MediaStoreへ登録させる。
     // アプリ内受信（MediaStore非対応）の場合はスキップ（無駄な待ちを防ぐ）。
+    String? scanWarning;
     if (done > 0 && supportsScan) {
       setState(() => _status = '${server.name}で写真を登録中…（Googleフォト用）');
-      await uploader.scan();
+      final scanError = await uploader.scan();
+      if (scanError != null) {
+        scanWarning = 'Googleフォト登録失敗 — Pixel側で termux-api のセットアップが必要です';
+      }
+    } else if (done > 0 && caps.needsScanSetup) {
+      scanWarning = 'Pixel側で termux-api のセットアップが必要です（Googleフォトに表示されません）';
     }
 
     // 送信が行われたら、未送信リマインダーを次回へ先送りする。
@@ -339,7 +340,8 @@ class _HomePageState extends State<HomePage> {
 
     final summary =
         '完了: 送信 $done 件 / スキップ $skipped 件 / 失敗 $failed 件'
-        '${stoppedForStorage ? '\n⚠️ ${server.name}の空き容量不足で中断しました' : ''}';
+        '${stoppedForStorage ? '\n⚠️ ${server.name}の空き容量不足で中断しました' : ''}'
+        '${scanWarning != null ? '\n⚠️ $scanWarning' : ''}';
     setState(() {
       _status = null;
       _selected.clear();
@@ -347,6 +349,7 @@ class _HomePageState extends State<HomePage> {
       _freeBytes = si?.freeBytes;
     });
     _showSnack(summary);
+    if (scanWarning != null) _showScanSetupDialog();
   }
 
   /// 既に送信済みのファイルの「撮影日付」をPixel側で修正する（再転送なし）。
@@ -406,7 +409,7 @@ class _HomePageState extends State<HomePage> {
       }
       if (caps.supportsMediaScan) {
         setState(() => _status = '${server.name}で再登録中…（Googleフォト用）');
-        await uploader.scan();
+        await uploader.scan(); // 失敗は無視（日付修正の主目的には影響しない）
       }
     } finally {
       await WakelockPlus.disable();
@@ -524,6 +527,64 @@ class _HomePageState extends State<HomePage> {
     _showSnack(summary);
   }
 
+  /// Googleフォトに表示するためのtermux-apiセットアップ手順を表示する。
+  void _showScanSetupDialog() {
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Googleフォトに表示するには'),
+        content: const SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Pixelのターミナル（Termux）で以下を実行してください：\n'),
+              SelectableText(
+                '1. pkg install termux-api\n'
+                '2. F-DroidでTermux:APIアプリをインストール\n'
+                '   （Play版のTermux:APIは動作しません）',
+                style: TextStyle(fontFamily: 'monospace', fontSize: 13),
+              ),
+              SizedBox(height: 12),
+              Text('その後、Googleフォト側でも：\n'),
+              SelectableText(
+                '3. Googleフォト → ライブラリ\n'
+                '   → デバイスのフォルダ → MediaRelay\n'
+                '   → バックアップ ON',
+                style: TextStyle(fontFamily: 'monospace', fontSize: 13),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// クイックシェアで届いたファイルをサーバーの重複チェック索引に取り込む。
+  /// 通常の送信前には不要（台帳で管理済み）。手動で実行したいときにのみ使う。
+  Future<void> _reindexQuickShare() async {
+    final server = _currentServer;
+    if (server == null) {
+      _showSnack('先に設定で送信先サーバーを登録してください');
+      return;
+    }
+    setState(() => _status = 'クイックシェアのファイルを索引に追加中…');
+    final count = await Uploader(server).reindex();
+    setState(() => _status = null);
+    if (count != null) {
+      _showSnack('索引を更新しました（合計 $count 件）');
+    } else {
+      _showSnack('${server.name}に接続できませんでした');
+    }
+  }
+
   void _showSnack(String msg) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
@@ -562,6 +623,10 @@ class _HomePageState extends State<HomePage> {
               } else if (v == 'delete_sent') {
                 _deleteFromDevice(
                     _all.where((m) => _sentIds.contains(m.id)).toList());
+              } else if (v == 'reindex_quickshare') {
+                _reindexQuickShare();
+              } else if (v == 'scan_setup') {
+                _showScanSetupDialog();
               } else if (v == 'receiver') {
                 Navigator.push(context,
                     MaterialPageRoute(builder: (_) => const ReceiverPage()));
@@ -583,6 +648,15 @@ class _HomePageState extends State<HomePage> {
               const PopupMenuItem(
                 value: 'delete_sent',
                 child: Text('送信済みを全件この端末から削除'),
+              ),
+              const PopupMenuDivider(),
+              const PopupMenuItem(
+                value: 'reindex_quickshare',
+                child: Text('クイックシェア受信分を検出（索引更新）'),
+              ),
+              const PopupMenuItem(
+                value: 'scan_setup',
+                child: Text('Googleフォト設定ガイド'),
               ),
               const PopupMenuDivider(),
               const PopupMenuItem(
