@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'app_settings.dart';
+import 'media_store.dart';
 import 'relay_server.dart';
 import 'server_config.dart';
 
@@ -47,8 +48,8 @@ class _ReceiverPageState extends State<ReceiverPage> {
   }
 
   Future<String> _resolveStorageRoot() async {
-    // Step①は MediaStore 未対応のため、書き込み可能なアプリ専用外部領域に保存する。
-    // （Googleフォトへの表示は次ステップで MediaStore 登録を実装する）
+    // MediaStore 登録に失敗した場合のフォールバック保存先（アプリ専用外部領域）。
+    // 通常は MediaStore API 経由で /sdcard/MediaRelay/ に保存される。
     final base = await getExternalStorageDirectory() ??
         await getApplicationDocumentsDirectory();
     return p.join(base.path, 'MediaRelay');
@@ -64,7 +65,17 @@ class _ReceiverPageState extends State<ReceiverPage> {
       _deviceName = await AppSettings.deviceName();
       _storageRoot = await _resolveStorageRoot();
       Directory(_storageRoot!).createSync(recursive: true);
-      final server = RelayServer(storageRoot: _storageRoot!, port: _port);
+      final server = RelayServer(
+        storageRoot: _storageRoot!,
+        port: _port,
+        mediaScan: (sourcePath, relativePath, originalDateMs, mimeType) =>
+            MediaStore.insertFile(
+              sourcePath: sourcePath,
+              relativePath: relativePath,
+              originalDateMs: originalDateMs,
+              mimeType: mimeType,
+            ),
+      );
       await server.start();
       _ips = await RelayServer.localIps();
       await WakelockPlus.enable();
@@ -303,10 +314,9 @@ class _ReceiverPageState extends State<ReceiverPage> {
               child: Padding(
                 padding: EdgeInsets.all(12),
                 child: Text(
-                  '⚠️ Step①の制限：\n'
+                  '⚠️ 現在の制限：\n'
                   '・画面を消す/アプリを閉じると受信が止まります（常駐は次ステップ）\n'
-                  '・受信ファイルはまだGoogleフォトに出ません（MediaStore登録は次ステップ）\n'
-                  'まずは送信側からの接続・転送が通るかの確認用です。',
+                  '・受信ファイルは /sdcard/MediaRelay/ に保存され、Googleフォトに表示されます',
                 ),
               ),
             ),

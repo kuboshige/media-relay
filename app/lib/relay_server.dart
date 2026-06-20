@@ -8,25 +8,40 @@ import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_router/shelf_router.dart';
 
+/// 受信ファイルを Android MediaStore に登録するコールバック型。
+///
+/// [sourcePath]     書き込み済みの一時ファイルパス（成功時に呼び出し元が削除する）
+/// [relativePath]   元のパス（例: DCIM/Camera/photo.jpg）
+/// [originalDateMs] 撮影日時ミリ秒。0 なら設定しない
+/// [mimeType]       null なら Kotlin 側が拡張子から推定
+///
+/// 成功時は content:// URI 文字列、失敗時は null。
+typedef MediaScanCallback = Future<String?> Function(
+    String sourcePath, String relativePath, int originalDateMs, String? mimeType);
+
 /// アプリ内の受信サーバー（受信モード）。
 ///
-/// Termux+node の受信側を Dart で置き換えるための雛形。
-/// 既存の送信アプリと同じHTTP API（/ping /exists /upload /reindex /setdate）を
+/// Termux+node の受信側を Dart で置き換える。
+/// 既存の送信アプリと同じHTTP API（/ping /exists /upload /reindex /setdate /scan）を
 /// 実装し、受領ハッシュを永続台帳（received-hashes.txt）に記録する。
 ///
-/// 注意（このステップの制限）：
-///  - フォアグラウンド常駐はまだ無い（アプリ前面/画面ON中のみ稼働）
-///  - 受信ファイルのMediaStore登録（Googleフォト表示）は未実装（次ステップ）
+/// [mediaScan] を渡すと受信ファイルを MediaStore（Googleフォト対応）に登録する。
+/// 未指定またはMediaStore失敗時はアプリ専用領域（storageRoot）に保存する。
 class RelayServer {
   final String storageRoot;
   final int port;
+  final MediaScanCallback? _mediaScan;
   HttpServer? _server;
   final Set<String> _seen = {};
   int _received = 0;
   String? _recvName; // 受信中ファイル名（進捗表示用）
   int _recvBytes = 0; // 受信中ファイルのこれまでのバイト数
 
-  RelayServer({required this.storageRoot, this.port = 8765});
+  RelayServer(
+      {required this.storageRoot,
+      this.port = 8765,
+      MediaScanCallback? mediaScan})
+      : _mediaScan = mediaScan;
 
   bool get running => _server != null;
   int get knownHashes => _seen.length;
@@ -84,9 +99,9 @@ class RelayServer {
         'ok': true,
         'storageRoot': storageRoot,
         'freeBytes': null,
-        // このサーバーはアプリ内Dart実装。MediaStore登録(/scan)はまだ非対応。
-        // 送信側はこのフラグを見て、無駄な /scan 待ちをスキップする。
-        'mediaScan': false,
+        // mediaScan: true = アップロードごとに MediaStore 登録済み（/scan は即 ok）。
+        // mediaScan: false = MediaStore 未対応（送信側は /scan をスキップする）。
+        'mediaScan': _mediaScan != null,
         'app': true,
       });
 
@@ -170,6 +185,23 @@ class RelayServer {
     }
 
     final normalized = relativePath.replaceAll(RegExp(r'^(\.\.(/|\\|$))+'), '');
+    final originalDateMs = int.tryParse(originalDate ?? '') ?? 0;
+
+    if (_mediaScan != null) {
+      final uri =
+          await _mediaScan!(tmp.path, normalized, originalDateMs, null);
+      if (uri != null) {
+        try {
+          tmp.deleteSync();
+        } catch (_) {}
+        _remember(hash);
+        _received++;
+        return _json(
+            {'ok': true, 'relativePath': normalized, 'sha256': hash, 'size': size});
+      }
+      // MediaStore失敗：tmp は残っているのでプライベートストレージにフォールバック
+    }
+
     final dest = File(p.join(storageRoot, normalized));
     dest.parent.createSync(recursive: true);
     try {
@@ -192,10 +224,8 @@ class RelayServer {
     });
   }
 
-  // MediaStore登録（Googleフォト表示）は Step③ で実装予定。
-  // 今は送信側が応答待ちで固まらないよう、即座に応答だけ返す（No-op）。
-  Response _scan(Request req) =>
-      _json({'ok': false, 'error': 'not implemented yet (step3)'});
+  // アップロードごとに MediaStore 登録済みなので、/scan は状態確認のみ。
+  Response _scan(Request req) => _json({'ok': _mediaScan != null});
 
   /// 生バイト直接アップロード（multipart不使用）。アプリ内受信の本命経路。
   /// メタデータはヘッダで渡す。ボディ長＝ファイル長なので確実にEOFまで消費でき、
@@ -243,6 +273,23 @@ class RelayServer {
         tmp.deleteSync();
       } catch (_) {}
       return _json({'error': 'empty body'}, status: 400);
+    }
+
+    final originalDateMs = int.tryParse(originalDate ?? '') ?? 0;
+
+    if (_mediaScan != null) {
+      final uri =
+          await _mediaScan!(tmp.path, normalized, originalDateMs, null);
+      if (uri != null) {
+        try {
+          tmp.deleteSync();
+        } catch (_) {}
+        _remember(hash);
+        _received++;
+        return _json(
+            {'ok': true, 'relativePath': normalized, 'sha256': hash, 'size': size});
+      }
+      // MediaStore失敗：tmp は残っているのでプライベートストレージにフォールバック
     }
 
     final dest = File(p.join(storageRoot, normalized));
