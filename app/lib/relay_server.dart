@@ -46,6 +46,7 @@ class RelayServer {
       ..get('/exists', _exists)
       ..post('/reindex', _reindex)
       ..post('/upload', _upload)
+      ..post('/upload-raw', _uploadRaw)
       ..post('/setdate', _setdate)
       ..post('/scan', _scan);
     _server = await shelf_io.serve(
@@ -195,6 +196,72 @@ class RelayServer {
   // 今は送信側が応答待ちで固まらないよう、即座に応答だけ返す（No-op）。
   Response _scan(Request req) =>
       _json({'ok': false, 'error': 'not implemented yet (step3)'});
+
+  /// 生バイト直接アップロード（multipart不使用）。アプリ内受信の本命経路。
+  /// メタデータはヘッダで渡す。ボディ長＝ファイル長なので確実にEOFまで消費でき、
+  /// multipartの終端未消費による「応答が返らず送信側が固まる」問題を避ける。
+  Future<Response> _uploadRaw(Request req) async {
+    final relB64 = req.headers['x-relative-path'];
+    if (relB64 == null) {
+      return _json({'error': 'x-relative-path header required'}, status: 400);
+    }
+    String relativePath;
+    try {
+      relativePath = utf8.decode(base64.decode(relB64));
+    } catch (_) {
+      return _json({'error': 'bad x-relative-path'}, status: 400);
+    }
+    final originalDate = req.headers['x-original-date'];
+    final normalized =
+        relativePath.replaceAll(RegExp(r'^(\.\.(/|\\|$))+'), '');
+
+    final tmp = File(p.join(storageRoot, '.state',
+        'upload-${DateTime.now().microsecondsSinceEpoch}.part'));
+    final sink = tmp.openWrite();
+    final digestSink = _DigestSink();
+    final hashSink = sha256.startChunkedConversion(digestSink);
+    _recvName = p.basename(normalized);
+    _recvBytes = 0;
+    var size = 0;
+    try {
+      await sink.addStream(req.read().map((chunk) {
+        hashSink.add(chunk);
+        size += chunk.length;
+        _recvBytes = size;
+        return chunk;
+      }));
+    } finally {
+      await sink.flush();
+      await sink.close();
+      hashSink.close();
+      _recvName = null;
+    }
+
+    final hash = digestSink.value?.toString();
+    if (hash == null || size == 0) {
+      try {
+        tmp.deleteSync();
+      } catch (_) {}
+      return _json({'error': 'empty body'}, status: 400);
+    }
+
+    final dest = File(p.join(storageRoot, normalized));
+    dest.parent.createSync(recursive: true);
+    try {
+      tmp.renameSync(dest.path);
+    } catch (_) {
+      tmp.copySync(dest.path);
+      try {
+        tmp.deleteSync();
+      } catch (_) {}
+    }
+    _applyDate(dest, originalDate);
+
+    _remember(hash);
+    _received++;
+    return _json(
+        {'ok': true, 'relativePath': normalized, 'sha256': hash, 'size': size});
+  }
 
   Future<Response> _setdate(Request req) async {
     final body = jsonDecode(await req.readAsString()) as Map<String, dynamic>;

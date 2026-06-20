@@ -27,7 +27,9 @@ class ServerInfo {
   // 旧node実装はこのフィールドを返さない → null（=対応扱い・従来通りscanする）。
   // アプリ内受信は false を返す → 送信側は /scan をスキップする。
   final bool? mediaScan;
-  ServerInfo({this.storageRoot, this.freeBytes, this.mediaScan});
+  // アプリ内Dart受信か（true なら multipart ではなく /upload-raw を使う）。
+  final bool app;
+  ServerInfo({this.storageRoot, this.freeBytes, this.mediaScan, this.app = false});
 
   /// /scan を呼ぶべきか（未指定の旧実装は従来通り呼ぶ）。
   bool get supportsMediaScan => mediaScan ?? true;
@@ -62,6 +64,7 @@ class Uploader {
         storageRoot: body['storageRoot'] as String?,
         freeBytes: (body['freeBytes'] as num?)?.toInt(),
         mediaScan: body['mediaScan'] as bool?,
+        app: body['app'] == true,
       );
     } catch (_) {
       return null;
@@ -132,6 +135,47 @@ class Uploader {
       return body['ok'] == true;
     } catch (_) {
       return false;
+    }
+  }
+
+  /// 生バイト直接アップロード（アプリ内受信向け・multipart不使用）。
+  /// [onProgress] で送信バイト数を通知する。
+  Future<UploadResult> uploadRaw(File file, String relativePath,
+      {int? originalDateMs, void Function(int sent, int total)? onProgress}) async {
+    try {
+      final total = await file.length();
+      var sent = 0;
+      final uri = Uri.parse('${server.baseUrl}/upload-raw');
+      final req = http.StreamedRequest('POST', uri);
+      req.headers['x-relative-path'] = base64.encode(utf8.encode(relativePath));
+      if (originalDateMs != null) {
+        req.headers['x-original-date'] = '$originalDateMs';
+      }
+      req.headers['content-type'] = 'application/octet-stream';
+      req.contentLength = total;
+
+      final respFut = req.send();
+      // バックプレッシャー付きで本文を流す
+      await req.sink.addStream(file.openRead().map((chunk) {
+        sent += chunk.length;
+        onProgress?.call(sent, total);
+        return chunk;
+      }));
+      await req.sink.close();
+
+      final streamed = await respFut.timeout(const Duration(minutes: 30));
+      final res = await http.Response.fromStream(streamed);
+      if (res.statusCode == 200) return UploadResult(ok: true);
+      if (res.statusCode == 507) {
+        return UploadResult(
+            ok: false,
+            insufficientStorage: true,
+            error: '${server.name}の空き容量が不足しています');
+      }
+      return UploadResult(
+          ok: false, error: 'HTTP ${res.statusCode}: ${res.body}');
+    } catch (e) {
+      return UploadResult(ok: false, error: e.toString());
     }
   }
 

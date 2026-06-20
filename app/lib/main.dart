@@ -53,6 +53,7 @@ class _HomePageState extends State<HomePage> {
   List<ServerEntry> _servers = [];
   int _selectedServer = 0;
   String? _status;
+  int _lastProgressMb = -1; // 送信進捗の表示更新スロットル用
   String? _lastResult; // 直近の送信結果（消えずに残す）
   int? _freeBytes; // Pixelの空き容量
 
@@ -250,8 +251,23 @@ class _HomePageState extends State<HomePage> {
           status = 'skipped';
           detail = '${server.name}に既に存在';
         } else {
-          final res = await uploader.upload(file, item.relativePath,
-              originalDateMs: item.createdAt.millisecondsSinceEpoch);
+          // アプリ内受信(app=true)は生アップロード＋MB進捗、旧nodeはmultipart。
+          final res = caps.app
+              ? await uploader.uploadRaw(file, item.relativePath,
+                  originalDateMs: item.createdAt.millisecondsSinceEpoch,
+                  onProgress: (sent, total) {
+                  final mb = sent >> 20;
+                  if (mb != _lastProgressMb) {
+                    _lastProgressMb = mb;
+                    final s = (sent / 1048576).toStringAsFixed(1);
+                    final t = (total / 1048576).toStringAsFixed(1);
+                    setState(() => _status =
+                        '送信中 ${i + 1}/${targets.length}: ${item.title}  $s/$t MB');
+                  }
+                })
+              : await uploader.upload(file, item.relativePath,
+                  originalDateMs: item.createdAt.millisecondsSinceEpoch);
+          _lastProgressMb = -1;
           if (res.ok) {
             done++;
             success = true;
