@@ -49,7 +49,13 @@ class FileOp {
 class DetailPageResult {
   final List<MediaItem> toSend;
   final List<MediaItem> toDelete;
-  const DetailPageResult({this.toSend = const [], this.toDelete = const []});
+  /// true のとき、受領確認をスキップして強制削除する（確認ダイアログは呼び出し元で表示済み）。
+  final bool forcedDelete;
+  const DetailPageResult({
+    this.toSend = const [],
+    this.toDelete = const [],
+    this.forcedDelete = false,
+  });
 }
 
 /// 送信・削除の操作結果をファイルごとに表示するページ。
@@ -90,6 +96,36 @@ class _ResultDetailPageState extends State<ResultDetailPage> {
         }
       });
 
+  Future<void> _onDeleteTapped() async {
+    final items = _selectedItems;
+    if (items.isEmpty) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('バックアップなしで削除'),
+        content: Text(
+          '${items.length} 件は受信側での受領が確認できていません。\n\n'
+          'このまま削除すると、ファイルはバックアップされずにこの端末から永久に消えます。\n\n'
+          'よろしいですか？',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('キャンセル'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('それでも削除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    Navigator.pop(
+        context, DetailPageResult(toDelete: items, forcedDelete: true));
+  }
+
   @override
   Widget build(BuildContext context) {
     final errorCount = widget.ops.where((o) => o.needsAttention).length;
@@ -121,10 +157,7 @@ class _ResultDetailPageState extends State<ResultDetailPage> {
                 context,
                 DetailPageResult(toSend: _selectedItems),
               ),
-              onDelete: () => Navigator.pop(
-                context,
-                DetailPageResult(toDelete: _selectedItems),
-              ),
+              onDelete: () { _onDeleteTapped(); },
               onClear: () => setState(() => _selected.clear()),
             ),
           Expanded(
@@ -176,9 +209,7 @@ class _ActionBar extends StatelessWidget {
           TextButton.icon(
             onPressed: onSend,
             icon: const Icon(Icons.upload, size: 16),
-            label: Text(serverName,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 13)),
+            label: const Text('送信', style: TextStyle(fontSize: 13)),
             style: TextButton.styleFrom(
                 visualDensity: VisualDensity.compact, padding: EdgeInsets.zero),
           ),

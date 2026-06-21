@@ -197,7 +197,42 @@ class _HomePageState extends State<HomePage> {
     );
     if (result == null || !mounted) return;
     if (result.toSend.isNotEmpty) await _send(result.toSend);
-    if (result.toDelete.isNotEmpty) await _deleteFromDevice(result.toDelete);
+    if (result.toDelete.isNotEmpty) {
+      if (result.forcedDelete) {
+        await _forceDeleteFromDevice(result.toDelete);
+      } else {
+        await _deleteFromDevice(result.toDelete);
+      }
+    }
+  }
+
+  /// 受領確認なしでファイルを強制削除する（確認ダイアログは詳細ページで表示済み）。
+  Future<void> _forceDeleteFromDevice(List<MediaItem> candidates) async {
+    if (candidates.isEmpty) return;
+    setState(() => _status = '削除中…（端末の確認ダイアログで許可してください）');
+    final ids = candidates.map((m) => m.id).toList();
+    List<String> deleted = const [];
+    try {
+      deleted = await PhotoManager.editor.deleteWithIds(ids);
+    } catch (e) {
+      setState(() => _status = null);
+      _showSnack('削除に失敗しました: $e');
+      return;
+    }
+    final ops = candidates.map((m) {
+      return deleted.contains(m.id)
+          ? FileOp(m, FileOpStatus.deleted)
+          : FileOp(m, FileOpStatus.failed, '端末の削除処理が失敗しました');
+    }).toList();
+    await _reloadMedia();
+    final summary =
+        '削除: ${deleted.length} 件 / 失敗 ${candidates.length - deleted.length} 件';
+    setState(() {
+      _status = null;
+      _lastResult = summary;
+      _lastOps = ops;
+    });
+    _showSnack(summary);
   }
 
   Future<void> _openFolderSelect() async {
