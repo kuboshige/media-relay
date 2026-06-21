@@ -65,9 +65,15 @@ jobs:
             echo "No ANDROID_KEYSTORE_BASE64 secret set; falling back to debug signing."
           fi
 
-      # ビルド毎に versionCode / versionName を上げる（更新判定のため）
+      # pubspec.yaml から version (x.y.z 部分) を抽出して環境変数に設定
+      - name: Extract version
+        run: |
+          VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: *//;s/+.*//')
+          echo "APP_VERSION=${VERSION}" >> "$GITHUB_ENV"
+
+      # ビルド毎に versionCode を run_number で上げる（更新判定のため）
       - name: Build release APK
-        run: flutter build apk --release --build-name=1.0.${{ github.run_number }} --build-number=${{ github.run_number }}
+        run: flutter build apk --release --build-name=${{ env.APP_VERSION }} --build-number=${{ github.run_number }}
 
       # 安定したファイル名にしておく（最新版の固定URLで配布できる）
       - name: Rename APK
@@ -84,8 +90,8 @@ jobs:
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.${{ github.run_number }}
-          name: media-relay build ${{ github.run_number }}
+          tag_name: v${{ env.APP_VERSION }}+${{ github.run_number }}
+          name: MediaRelay v${{ env.APP_VERSION }} (build ${{ github.run_number }})
           files: app/media-relay.apk
           body: |
             自動ビルドのAPK。Obtainium で更新管理できます。

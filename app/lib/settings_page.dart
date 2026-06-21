@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'server_config.dart';
 import 'uploader.dart';
 import 'app_settings.dart';
@@ -166,11 +167,16 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  Widget _sectionHeader(String title) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: Text(title, style: Theme.of(context).textTheme.titleSmall),
+  Widget _sectionHeader(String title, {List<Widget>? actions}) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 8, 4),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(title,
+                  style: Theme.of(context).textTheme.titleSmall),
+            ),
+            if (actions != null) ...actions,
+          ],
         ),
       );
 
@@ -230,27 +236,79 @@ class _SettingsPageState extends State<SettingsPage> {
         content: Text(ok ? '接続OK: ${s.name}' : '接続できません: ${s.host}:${s.port}')));
   }
 
+  Future<void> _launchUrl(String url) async {
+    final uri = Uri.parse(url);
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('開けませんでした: $url')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('設定'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.qr_code_scanner),
-            tooltip: 'QRで送信先を追加',
-            onPressed: _addFromQr,
-          ),
-        ],
-      ),
-      body: Column(
+      appBar: AppBar(title: const Text('設定')),
+      body: ListView(
         children: [
+          // ━━━━ 送信先サーバー ━━━━
+          _sectionHeader('送信先サーバー', actions: [
+            IconButton(
+              icon: const Icon(Icons.qr_code_scanner),
+              tooltip: 'QRで追加',
+              onPressed: _addFromQr,
+            ),
+            IconButton(
+              icon: const Icon(Icons.add_circle_outline),
+              tooltip: '手動追加',
+              onPressed: () => _edit(),
+            ),
+          ]),
+          if (_servers.isEmpty)
+            const ListTile(
+              leading: Icon(Icons.info_outline),
+              title: Text('サーバー未登録'),
+              subtitle: Text('右のQRアイコンでスキャン、または＋で手動追加'),
+            )
+          else
+            for (int i = 0; i < _servers.length; i++)
+              RadioListTile<int>(
+                value: i,
+                groupValue: _selected,
+                onChanged: (v) async {
+                  setState(() => _selected = v!);
+                  await _persist();
+                },
+                title: Text(_servers[i].name),
+                subtitle: Text('${_servers[i].host}:${_servers[i].port}'
+                    '${_servers[i].token != null ? ' 🔒' : ''}'),
+                secondary: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.wifi_tethering),
+                      tooltip: '接続テスト',
+                      onPressed: () => _test(_servers[i]),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.edit),
+                      onPressed: () => _edit(index: i),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete),
+                      onPressed: () => _delete(i),
+                    ),
+                  ],
+                ),
+              ),
+          const Divider(height: 1),
+
+          // ━━━━ 起動時の動作 ━━━━
           _sectionHeader('起動時の動作'),
           _startupActionTile(),
           const Divider(height: 1),
-          _sectionHeader('通知'),
-          _reminderTile(),
-          const Divider(height: 1),
+
+          // ━━━━ 受信設定 ━━━━
           _sectionHeader('受信設定'),
           ListTile(
             leading: const Icon(Icons.label_outline),
@@ -289,52 +347,44 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ),
           const Divider(height: 1),
-          _sectionHeader('送信先サーバー'),
-          Expanded(
-            child: _servers.isEmpty
-                ? const Center(
-                    child: Text('サーバー未登録\n右下の＋から追加',
-                        textAlign: TextAlign.center))
-                : ListView.builder(
-                    itemCount: _servers.length,
-                    itemBuilder: (context, i) {
-                      final s = _servers[i];
-                      return RadioListTile<int>(
-                  value: i,
-                  groupValue: _selected,
-                  onChanged: (v) async {
-                    setState(() => _selected = v!);
-                    await _persist();
-                  },
-                  title: Text(s.name),
-                  subtitle: Text('${s.host}:${s.port}'),
-                  secondary: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.wifi_tethering),
-                        tooltip: '接続テスト',
-                        onPressed: () => _test(s),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.edit),
-                        onPressed: () => _edit(index: i),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.delete),
-                        onPressed: () => _delete(i),
-                      ),
-                    ],
-                  ),
-                      );
-                    },
-                  ),
+
+          // ━━━━ 通知 ━━━━
+          _sectionHeader('通知'),
+          _reminderTile(),
+          const Divider(height: 1),
+
+          // ━━━━ 情報 ━━━━
+          _sectionHeader('情報'),
+          ListTile(
+            leading: const Icon(Icons.code),
+            title: const Text('GitHub リポジトリ'),
+            subtitle: const Text('github.com/kuboshige/media-relay'),
+            trailing: const Icon(Icons.open_in_new, size: 18),
+            onTap: () => _launchUrl('https://github.com/kuboshige/media-relay'),
           ),
+          ListTile(
+            leading: const Icon(Icons.privacy_tip_outlined),
+            title: const Text('プライバシーポリシー'),
+            trailing: const Icon(Icons.open_in_new, size: 18),
+            onTap: () => _launchUrl(
+                'https://github.com/kuboshige/media-relay/blob/main/PRIVACY.md'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.article_outlined),
+            title: const Text('ライセンス (MIT)'),
+            trailing: const Icon(Icons.open_in_new, size: 18),
+            onTap: () => _launchUrl(
+                'https://github.com/kuboshige/media-relay/blob/main/LICENSE'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.battery_alert_outlined),
+            title: const Text('バックグラウンド動作の改善'),
+            subtitle: const Text('Android の省電力設定で強制終了される場合はこちら'),
+            trailing: const Icon(Icons.open_in_new, size: 18),
+            onTap: () => _launchUrl('https://dontkillmyapp.com/'),
+          ),
+          const SizedBox(height: 16),
         ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _edit(),
-        child: const Icon(Icons.add),
       ),
     );
   }
@@ -355,12 +405,15 @@ class _ServerDialogState extends State<_ServerDialog> {
       TextEditingController(text: widget.entry?.host ?? '');
   late final TextEditingController _port =
       TextEditingController(text: (widget.entry?.port ?? 8765).toString());
+  late final TextEditingController _token =
+      TextEditingController(text: widget.entry?.token ?? '');
 
   @override
   void dispose() {
     _name.dispose();
     _host.dispose();
     _port.dispose();
+    _token.dispose();
     super.dispose();
   }
 
@@ -368,26 +421,36 @@ class _ServerDialogState extends State<_ServerDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: Text(widget.entry == null ? 'サーバー追加' : 'サーバー編集'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(
-            controller: _name,
-            decoration: const InputDecoration(
-                labelText: '表示名', hintText: '例: 家のPixel'),
-          ),
-          TextField(
-            controller: _host,
-            decoration: const InputDecoration(
-                labelText: 'IPアドレス / ホスト名', hintText: '例: 192.168.1.20'),
-            keyboardType: TextInputType.url,
-          ),
-          TextField(
-            controller: _port,
-            decoration: const InputDecoration(labelText: 'ポート'),
-            keyboardType: TextInputType.number,
-          ),
-        ],
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _name,
+              decoration: const InputDecoration(
+                  labelText: '表示名', hintText: '例: 家のPixel'),
+            ),
+            TextField(
+              controller: _host,
+              decoration: const InputDecoration(
+                  labelText: 'IPアドレス / ホスト名', hintText: '例: 192.168.1.20'),
+              keyboardType: TextInputType.url,
+            ),
+            TextField(
+              controller: _port,
+              decoration: const InputDecoration(labelText: 'ポート'),
+              keyboardType: TextInputType.number,
+            ),
+            TextField(
+              controller: _token,
+              decoration: const InputDecoration(
+                  labelText: 'トークン（任意）',
+                  hintText: 'QRスキャンで自動設定されます',
+                  prefixIcon: Icon(Icons.lock_outline, size: 18)),
+              style: const TextStyle(fontFamily: 'monospace'),
+            ),
+          ],
+        ),
       ),
       actions: [
         TextButton(
@@ -399,6 +462,7 @@ class _ServerDialogState extends State<_ServerDialog> {
             final name = _name.text.trim();
             final host = _host.text.trim();
             final port = int.tryParse(_port.text.trim()) ?? 8765;
+            final token = _token.text.trim();
             if (host.isEmpty) return;
             Navigator.pop(
               context,
@@ -406,6 +470,7 @@ class _ServerDialogState extends State<_ServerDialog> {
                 name: name.isEmpty ? host : name,
                 host: host,
                 port: port,
+                token: token.isEmpty ? null : token,
               ),
             );
           },

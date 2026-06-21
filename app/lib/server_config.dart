@@ -6,26 +6,39 @@ class ServerEntry {
   final String name; // 表示名（例: 家のPixel）
   final String host; // IPアドレスまたはホスト名
   final int port;
+  // セッショントークン（受信側QRで自動設定。null なら認証なし）
+  final String? token;
 
-  ServerEntry({required this.name, required this.host, this.port = 8765});
+  ServerEntry({required this.name, required this.host, this.port = 8765, this.token});
 
   String get baseUrl => 'http://$host:$port';
 
-  Map<String, dynamic> toJson() => {'name': name, 'host': host, 'port': port};
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'host': host,
+        'port': port,
+        if (token != null) 'token': token,
+      };
 
   factory ServerEntry.fromJson(Map<String, dynamic> j) => ServerEntry(
         name: j['name'] as String,
         host: j['host'] as String,
         port: (j['port'] as num?)?.toInt() ?? 8765,
+        token: j['token'] as String?,
       );
 
-  /// 受信側QR/接続リンク（mediarelay://connect?host=..&port=..&name=..）。
+  /// 受信側QR/接続リンク（mediarelay://connect?host=..&port=..&name=..&token=..）。
   static String buildConnectUri(
-          {required String host, required int port, required String name}) =>
+          {required String host, required int port, required String name, String? token}) =>
       Uri(
         scheme: 'mediarelay',
         host: 'connect',
-        queryParameters: {'host': host, 'port': '$port', 'name': name},
+        queryParameters: {
+          'host': host,
+          'port': '$port',
+          'name': name,
+          if (token != null) 'token': token,
+        },
       ).toString();
 
   /// QR/リンク文字列から ServerEntry を作る。形式不正なら null。
@@ -41,10 +54,12 @@ class ServerEntry {
     if (host == null || host.isEmpty) return null;
     final port = int.tryParse(uri.queryParameters['port'] ?? '') ?? 8765;
     final name = uri.queryParameters['name'];
+    final token = uri.queryParameters['token'];
     return ServerEntry(
       name: (name == null || name.isEmpty) ? host : name,
       host: host,
       port: port,
+      token: (token != null && token.isNotEmpty) ? token : null,
     );
   }
 }

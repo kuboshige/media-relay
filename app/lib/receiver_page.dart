@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
@@ -23,6 +24,7 @@ class ReceiverPage extends StatefulWidget {
 
 class _ReceiverPageState extends State<ReceiverPage> {
   RelayServer? _server;
+  String? _token;
   List<({String ip, String iface, bool wifi, bool virtual})> _ips = [];
   bool _showAllIps = false;
   int _port = AppSettings.defaultReceiverPort;
@@ -76,9 +78,11 @@ class _ReceiverPageState extends State<ReceiverPage> {
       _autoStopMinutes = await AppSettings.receiverAutoStopMinutes();
       _storageRoot = await _resolveStorageRoot();
       Directory(_storageRoot!).createSync(recursive: true);
+      final token = _generateToken();
       final server = RelayServer(
         storageRoot: _storageRoot!,
         port: _port,
+        token: token,
         mediaScan: (sourcePath, relativePath, originalDateMs, mimeType) =>
             MediaStore.insertFile(
               sourcePath: sourcePath,
@@ -88,6 +92,7 @@ class _ReceiverPageState extends State<ReceiverPage> {
             ),
       );
       await server.start();
+      _token = token;
       _ips = await RelayServer.localIps();
       await WakelockPlus.enable();
       _serverStartedAt = DateTime.now();
@@ -128,7 +133,8 @@ class _ReceiverPageState extends State<ReceiverPage> {
         content: const Text(
           'アプリを小さくしたり画面を消すと、Androidが受信サーバーを止める場合があります。\n\n'
           '「電池の最適化」でこのアプリを除外すると、バックグラウンドでも安定して受信できます。\n\n'
-          '次の画面で このアプリ →「最適化しない」を選んでください。',
+          '次の画面で このアプリ →「最適化しない」を選んでください。\n\n'
+          'Pixel以外の機種でも止まる場合は「設定」→「情報」→ dontkillmyapp.com を参照してください。',
         ),
         actions: [
           TextButton(
@@ -154,7 +160,17 @@ class _ReceiverPageState extends State<ReceiverPage> {
     await WakelockPlus.disable();
     await ReceiverService.stop();
     _serverStartedAt = null;
-    setState(() => _server = null);
+    setState(() {
+      _server = null;
+      _token = null;
+    });
+  }
+
+  String _generateToken() {
+    final random = Random.secure();
+    return List.generate(8, (_) => random.nextInt(256))
+        .map((b) => b.toRadixString(16).padLeft(2, '0'))
+        .join();
   }
 
   List<({String ip, String iface, bool wifi, bool virtual})> get _visibleIps {
@@ -210,7 +226,7 @@ class _ReceiverPageState extends State<ReceiverPage> {
 
   Widget _qrCard(String ip) {
     final data = ServerEntry.buildConnectUri(
-        host: ip, port: _port, name: _deviceName);
+        host: ip, port: _port, name: _deviceName, token: _token);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -229,6 +245,20 @@ class _ReceiverPageState extends State<ReceiverPage> {
                 size: 220,
               ),
             ),
+            if (_token != null) ...[
+              const SizedBox(height: 6),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.lock, size: 14, color: Colors.teal),
+                  const SizedBox(width: 4),
+                  SelectableText(
+                    'token: $_token',
+                    style: const TextStyle(fontSize: 12, fontFamily: 'monospace', color: Colors.teal),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 8),
             const Text(
               '送信側の「設定」→「QRで追加」で読み取ってください',

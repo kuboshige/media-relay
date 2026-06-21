@@ -30,6 +30,8 @@ typedef MediaScanCallback = Future<String?> Function(
 class RelayServer {
   final String storageRoot;
   final int port;
+  // セッショントークン。null なら認証なし（既存の node サーバーとの互換）。
+  final String? token;
   final MediaScanCallback? _mediaScan;
   HttpServer? _server;
   final Set<String> _seen = {};
@@ -43,6 +45,7 @@ class RelayServer {
   RelayServer(
       {required this.storageRoot,
       this.port = 8765,
+      this.token,
       MediaScanCallback? mediaScan})
       : _mediaScan = mediaScan;
 
@@ -108,6 +111,15 @@ class RelayServer {
   Response _json(Object body, {int status = 200}) => Response(status,
       body: jsonEncode(body), headers: {'content-type': 'application/json'});
 
+  /// トークン認証チェック。token が null なら常に通過。
+  /// 不正なら 401 レスポンスを返す（null なら認証 OK）。
+  Response? _requireAuth(Request req) {
+    if (token == null) return null;
+    final auth = req.headers['authorization'] ?? '';
+    if (auth == 'Bearer $token') return null;
+    return _json({'error': 'unauthorized'}, status: 401);
+  }
+
   Response _ping(Request req) => _json({
         'ok': true,
         'storageRoot': storageRoot,
@@ -119,6 +131,8 @@ class RelayServer {
       });
 
   Response _exists(Request req) {
+    final unauth = _requireAuth(req);
+    if (unauth != null) return unauth;
     final hash = req.url.queryParameters['hash'] ?? '';
     if (!RegExp(r'^[a-f0-9]{64}$').hasMatch(hash)) {
       return _json({'error': 'invalid hash'}, status: 400);
@@ -127,6 +141,8 @@ class RelayServer {
   }
 
   Future<Response> _reindex(Request req) async {
+    final unauth = _requireAuth(req);
+    if (unauth != null) return unauth;
     final root = Directory(storageRoot);
     if (root.existsSync()) {
       for (final e in root.listSync(recursive: true, followLinks: false)) {
@@ -141,6 +157,8 @@ class RelayServer {
   }
 
   Future<Response> _upload(Request req) async {
+    final unauth = _requireAuth(req);
+    if (unauth != null) return unauth;
     final boundary = _boundary(req.headers['content-type'] ?? '');
     if (boundary == null) return _json({'error': 'not multipart'}, status: 400);
 
@@ -250,12 +268,18 @@ class RelayServer {
   }
 
   // アップロードごとに MediaStore 登録済みなので、/scan は状態確認のみ。
-  Response _scan(Request req) => _json({'ok': _mediaScan != null});
+  Response _scan(Request req) {
+    final unauth = _requireAuth(req);
+    if (unauth != null) return unauth;
+    return _json({'ok': _mediaScan != null});
+  }
 
   /// 生バイト直接アップロード（multipart不使用）。アプリ内受信の本命経路。
   /// メタデータはヘッダで渡す。ボディ長＝ファイル長なので確実にEOFまで消費でき、
   /// multipartの終端未消費による「応答が返らず送信側が固まる」問題を避ける。
   Future<Response> _uploadRaw(Request req) async {
+    final unauth = _requireAuth(req);
+    if (unauth != null) return unauth;
     final relB64 = req.headers['x-relative-path'];
     if (relB64 == null) {
       return _json({'error': 'x-relative-path header required'}, status: 400);
@@ -348,6 +372,8 @@ class RelayServer {
   }
 
   Future<Response> _setdate(Request req) async {
+    final unauth = _requireAuth(req);
+    if (unauth != null) return unauth;
     final body = jsonDecode(await req.readAsString()) as Map<String, dynamic>;
     final rel = body['relativePath'] as String?;
     if (rel == null) return _json({'error': 'relativePath required'}, status: 400);

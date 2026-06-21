@@ -44,6 +44,11 @@ class Uploader {
   final ServerEntry server;
   Uploader(this.server);
 
+  /// トークンがある場合に付加する Authorization ヘッダ。
+  Map<String, String> get _authHeaders => server.token != null
+      ? {'Authorization': 'Bearer ${server.token}'}
+      : {};
+
   /// サーバー死活確認
   Future<bool> ping() async {
     try {
@@ -81,7 +86,8 @@ class Uploader {
   Future<bool> exists(String sha256) async {
     try {
       final res = await http
-          .get(Uri.parse('${server.baseUrl}/exists?hash=$sha256'))
+          .get(Uri.parse('${server.baseUrl}/exists?hash=$sha256'),
+              headers: _authHeaders)
           .timeout(const Duration(seconds: 180));
       if (res.statusCode != 200) return false;
       final body = jsonDecode(res.body) as Map<String, dynamic>;
@@ -96,7 +102,7 @@ class Uploader {
   Future<int?> reindex() async {
     try {
       final res = await http
-          .post(Uri.parse('${server.baseUrl}/reindex'))
+          .post(Uri.parse('${server.baseUrl}/reindex'), headers: _authHeaders)
           .timeout(const Duration(minutes: 10));
       if (res.statusCode != 200) return null;
       final body = jsonDecode(res.body) as Map<String, dynamic>;
@@ -111,7 +117,7 @@ class Uploader {
   Future<String?> scan() async {
     try {
       final res = await http
-          .post(Uri.parse('${server.baseUrl}/scan'))
+          .post(Uri.parse('${server.baseUrl}/scan'), headers: _authHeaders)
           .timeout(const Duration(minutes: 5));
       if (res.statusCode != 200) return 'HTTP ${res.statusCode}';
       final body = jsonDecode(res.body) as Map<String, dynamic>;
@@ -128,7 +134,7 @@ class Uploader {
       final res = await http
           .post(
             Uri.parse('${server.baseUrl}/setdate'),
-            headers: {'Content-Type': 'application/json'},
+            headers: {'Content-Type': 'application/json', ..._authHeaders},
             body: jsonEncode({
               'relativePath': relativePath,
               'originalDate': originalDateMs,
@@ -160,6 +166,9 @@ class Uploader {
           .set('x-relative-path', base64.encode(utf8.encode(relativePath)));
       if (originalDateMs != null) {
         request.headers.set('x-original-date', '$originalDateMs');
+      }
+      if (server.token != null) {
+        request.headers.set('authorization', 'Bearer ${server.token}');
       }
       request.headers.contentType =
           ContentType('application', 'octet-stream');
@@ -199,6 +208,7 @@ class Uploader {
     try {
       final uri = Uri.parse('${server.baseUrl}/upload');
       final req = http.MultipartRequest('POST', uri);
+      req.headers.addAll(_authHeaders);
       req.fields['relativePath'] = relativePath;
       if (originalDateMs != null) {
         req.fields['originalDate'] = originalDateMs.toString();

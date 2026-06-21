@@ -1,0 +1,294 @@
+{
+  "@@locale": "ja",
+
+  "appTitle": "MediaRelay",
+  "@appTitle": { "description": "Application name" },
+
+  "tabSend": "送信",
+  "@tabSend": { "description": "Tab label for sender" },
+
+  "tabReceive": "受信",
+  "@tabReceive": { "description": "Tab label for receiver" },
+
+  "tabSettings": "設定",
+  "@tabSettings": { "description": "Tab label for settings" },
+
+  "btnStart": "開始",
+  "@btnStart": { "description": "Start button" },
+
+  "btnStop": "停止",
+  "@btnStop": { "description": "Stop button" },
+
+  "btnSend": "送信",
+  "@btnSend": { "description": "Send button" },
+
+  "btnCancel": "キャンセル",
+  "@btnCancel": { "description": "Cancel button" },
+
+  "btnSave": "保存",
+  "@btnSave": { "description": "Save button" },
+
+  "btnClose": "閉じる",
+  "@btnClose": { "description": "Close button" },
+
+  "btnDelete": "削除",
+  "@btnDelete": { "description": "Delete button" },
+
+  "statusReceiving": "受信中",
+  "@statusReceiving": { "description": "Status label: server is running" },
+
+  "statusStopped": "停止中",
+  "@statusStopped": { "description": "Status label: server is stopped" },
+
+  "serverNotRegistered": "サーバー未登録",
+  "@serverNotRegistered": { "description": "Empty state for server list" },
+
+  "serverNotRegisteredHint": "右のQRアイコンでスキャン、または＋で手動追加",
+  "@serverNotRegisteredHint": { "description": "Hint for adding server" },
+
+  "addServerQr": "QRで追加",
+  "@addServerQr": { "description": "Tooltip: add server via QR" },
+
+  "addServerManual": "手動追加",
+  "@addServerManual": { "description": "Tooltip: add server manually" },
+
+  "settingsSectionServer": "送信先サーバー",
+  "@settingsSectionServer": { "description": "Settings section: server list" },
+
+  "settingsSectionStartup": "起動時の動作",
+  "@settingsSectionStartup": { "description": "Settings section: startup action" },
+
+  "settingsSectionReceiver": "受信設定",
+  "@settingsSectionReceiver": { "description": "Settings section: receiver" },
+
+  "settingsSectionNotifications": "通知",
+  "@settingsSectionNotifications": { "description": "Settings section: notifications" },
+
+  "settingsSectionInfo": "情報",
+  "@settingsSectionInfo": { "description": "Settings section: info links" },
+
+  "startupActionNone": "何もしない",
+  "@startupActionNone": { "description": "Startup action: none" },
+
+  "startupActionSend": "未送信を自動送信",
+  "@startupActionSend": { "description": "Startup action: auto-send unsent" },
+
+  "startupActionSendAndDelete": "未送信を送信して削除",
+  "@startupActionSendAndDelete": { "description": "Startup action: send and delete unsent" },
+
+  "startupActionLabel": "アプリを開いた時の動作",
+  "@startupActionLabel": { "description": "Startup action tile title" },
+
+  "reminderOff": "オフ",
+  "@reminderOff": { "description": "Reminder disabled label" },
+
+  "reminderDays": "{days}日",
+  "@reminderDays": {
+    "description": "Reminder interval in days",
+    "placeholders": { "days": { "type": "int" } }
+  },
+
+  "reminderTileTitle": "未送信リマインダー",
+  "@reminderTileTitle": { "description": "Reminder tile title" },
+
+  "reminderActive": "最後の送信から{days}日後に通知します",
+  "@reminderActive": {
+    "description": "Reminder active subtitle",
+    "placeholders": { "days": { "type": "int" } }
+  },
+
+  "reminderDisabled": "リマインダーをオフにしました",
+  "@reminderDisabled": { "description": "Snackbar: reminder disabled" },
+
+  "reminderEnabled": "{days}日ごとに送信を促します",
+  "@reminderEnabled": {
+    "description": "Snackbar: reminder enabled",
+    "placeholders": { "days": { "type": "int" } }
+  },
+
+  "deviceNameLabel": "この端末の名前",
+  "@deviceNameLabel": { "description": "Device name tile title" },
+
+  "deviceNameHint": "例: 家のPixel",
+  "@deviceNameHint": { "description": "Device name hint text" },
+
+  "deviceNameNotSet": "未設定",
+  "@deviceNameNotSet": { "description": "Device name not set label" },
+
+  "receiverPortLabel": "受信ポート",
+  "@receiverPortLabel": { "description": "Receiver port tile title" },
+
+  "receiverPortDialogTitle": "受信ポート番号",
+  "@receiverPortDialogTitle": { "description": "Receiver port dialog title" },
+
+  "autoStopLabel": "無通信で自動停止",
+  "@autoStopLabel": { "description": "Auto-stop tile title" },
+
+  "autoStopOff": "停止しない",
+  "@autoStopOff": { "description": "Auto-stop disabled" },
+
+  "autoStopMinutes": "{minutes}分",
+  "@autoStopMinutes": {
+    "description": "Auto-stop after N minutes",
+    "placeholders": { "minutes": { "type": "int" } }
+  },
+
+  "autoStopActive": "最後の受信から {minutes} 分後",
+  "@autoStopActive": {
+    "description": "Auto-stop active subtitle",
+    "placeholders": { "minutes": { "type": "int" } }
+  },
+
+  "infoGithub": "GitHub リポジトリ",
+  "@infoGithub": { "description": "Info link: GitHub" },
+
+  "infoPrivacyPolicy": "プライバシーポリシー",
+  "@infoPrivacyPolicy": { "description": "Info link: Privacy Policy" },
+
+  "infoLicense": "ライセンス (MIT)",
+  "@infoLicense": { "description": "Info link: License" },
+
+  "infoDontKillMyApp": "バックグラウンド動作の改善",
+  "@infoDontKillMyApp": { "description": "Info link: dontkillmyapp.com" },
+
+  "infoDontKillMyAppSubtitle": "Android の省電力設定で強制終了される場合はこちら",
+  "@infoDontKillMyAppSubtitle": { "description": "Subtitle for dontkillmyapp link" },
+
+  "urlOpenError": "開けませんでした: {url}",
+  "@urlOpenError": {
+    "description": "Snackbar when URL cannot be opened",
+    "placeholders": { "url": { "type": "String" } }
+  },
+
+  "serverDialogAddTitle": "サーバー追加",
+  "@serverDialogAddTitle": { "description": "Server dialog title when adding" },
+
+  "serverDialogEditTitle": "サーバー編集",
+  "@serverDialogEditTitle": { "description": "Server dialog title when editing" },
+
+  "serverNameLabel": "表示名",
+  "@serverNameLabel": { "description": "Server name field label" },
+
+  "serverNameHint": "例: 家のPixel",
+  "@serverNameHint": { "description": "Server name hint" },
+
+  "serverHostLabel": "IPアドレス / ホスト名",
+  "@serverHostLabel": { "description": "Server host field label" },
+
+  "serverHostHint": "例: 192.168.1.20",
+  "@serverHostHint": { "description": "Server host hint" },
+
+  "serverPortLabel": "ポート",
+  "@serverPortLabel": { "description": "Server port field label" },
+
+  "serverTokenLabel": "トークン（任意）",
+  "@serverTokenLabel": { "description": "Server token field label" },
+
+  "serverTokenHint": "QRスキャンで自動設定されます",
+  "@serverTokenHint": { "description": "Server token hint" },
+
+  "connectTestPending": "接続確認中…",
+  "@connectTestPending": { "description": "Snackbar during connection test" },
+
+  "connectTestOk": "接続OK: {name}",
+  "@connectTestOk": {
+    "description": "Snackbar when connection test succeeds",
+    "placeholders": { "name": { "type": "String" } }
+  },
+
+  "connectTestFail": "接続できません: {hostPort}",
+  "@connectTestFail": {
+    "description": "Snackbar when connection test fails",
+    "placeholders": { "hostPort": { "type": "String" } }
+  },
+
+  "serverAdded": "追加: {name} ({hostPort})",
+  "@serverAdded": {
+    "description": "Snackbar when server is added",
+    "placeholders": {
+      "name": { "type": "String" },
+      "hostPort": { "type": "String" }
+    }
+  },
+
+  "receiverAddressHint": "このアドレスを送信側に登録:",
+  "@receiverAddressHint": { "description": "Hint above IP address" },
+
+  "receiverIpPending": "(IP取得中)",
+  "@receiverIpPending": { "description": "IP address loading placeholder" },
+
+  "receiverStartHint": "「開始」で受信サーバーを起動します（ポート: {port}）",
+  "@receiverStartHint": {
+    "description": "Hint when server is stopped",
+    "placeholders": { "port": { "type": "int" } }
+  },
+
+  "receiverSessionCount": "このセッションの受信: {count} 件 / 台帳: {hashes} ハッシュ",
+  "@receiverSessionCount": {
+    "description": "Session received count",
+    "placeholders": {
+      "count": { "type": "int" },
+      "hashes": { "type": "int" }
+    }
+  },
+
+  "receiverInProgress": "受信中: {name} ({mb} MB)",
+  "@receiverInProgress": {
+    "description": "File being received label",
+    "placeholders": {
+      "name": { "type": "String" },
+      "mb": { "type": "String" }
+    }
+  },
+
+  "receiverQrHint": "送信側の「設定」→「QRで追加」で読み取ってください",
+  "@receiverQrHint": { "description": "Hint below QR code" },
+
+  "batteryDialogTitle": "バックグラウンド受信の安定化",
+  "@batteryDialogTitle": { "description": "Battery optimization dialog title" },
+
+  "batteryDialogBody": "アプリを小さくしたり画面を消すと、Androidが受信サーバーを止める場合があります。\n\n「電池の最適化」でこのアプリを除外すると、バックグラウンドでも安定して受信できます。\n\n次の画面で このアプリ →「最適化しない」を選んでください。\n\nPixel以外の機種でも止まる場合は「設定」→「情報」→ dontkillmyapp.com を参照してください。",
+  "@batteryDialogBody": { "description": "Battery optimization dialog body" },
+
+  "batteryDialogLater": "後で設定する",
+  "@batteryDialogLater": { "description": "Battery dialog: dismiss" },
+
+  "batteryDialogOpen": "設定を開く",
+  "@batteryDialogOpen": { "description": "Battery dialog: open settings" },
+
+  "screenLockInfoText": "画面ロックしても受信サーバーは動き続けます。\nホームボタンで戻ったり電源ボタンで画面を消しても大丈夫です。\nアプリを一度開くだけで、あとは充電しながら放置できます。",
+  "@screenLockInfoText": { "description": "Screen lock info card text" },
+
+  "autoStopCountdownMinutes": "あと {minutes}分 {seconds}秒で自動停止・画面オフ",
+  "@autoStopCountdownMinutes": {
+    "description": "Countdown with minutes",
+    "placeholders": {
+      "minutes": { "type": "int" },
+      "seconds": { "type": "int" }
+    }
+  },
+
+  "autoStopCountdownSeconds": "あと {seconds}秒で自動停止・画面オフ",
+  "@autoStopCountdownSeconds": {
+    "description": "Countdown with seconds only",
+    "placeholders": { "seconds": { "type": "int" } }
+  },
+
+  "vpnAddressShow": "VPN等のアドレスも表示 ({count})",
+  "@vpnAddressShow": {
+    "description": "Show virtual addresses button",
+    "placeholders": { "count": { "type": "int" } }
+  },
+
+  "vpnAddressHide": "VPN等のアドレスを隠す",
+  "@vpnAddressHide": { "description": "Hide virtual addresses button" },
+
+  "copyDone": "コピーしました",
+  "@copyDone": { "description": "Snackbar: copied to clipboard" },
+
+  "copy": "コピー",
+  "@copy": { "description": "Tooltip: copy" },
+
+  "wifiLabel": "Wi-Fi",
+  "@wifiLabel": { "description": "Wi-Fi interface label" }
+}
