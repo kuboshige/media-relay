@@ -34,9 +34,11 @@ class RelayServer {
   HttpServer? _server;
   final Set<String> _seen = {};
   int _received = 0;
-  String? _recvName; // 受信中ファイル名（進捗表示用）
-  int _recvBytes = 0; // 受信中ファイルのこれまでのバイト数
+  String? _recvName;
+  int _recvBytes = 0;
   DateTime? _lastReceivedAt;
+  final List<({String title, String relativePath, DateTime receivedAt})>
+      _receivedItems = [];
 
   RelayServer(
       {required this.storageRoot,
@@ -50,6 +52,8 @@ class RelayServer {
   String? get receivingName => _recvName;
   int get receivingBytes => _recvBytes;
   DateTime? get lastReceivedAt => _lastReceivedAt;
+  List<({String title, String relativePath, DateTime receivedAt})>
+      get receivedItems => List.unmodifiable(_receivedItems);
 
   File get _ledgerFile =>
       File(p.join(storageRoot, '.state', 'received-hashes.txt'));
@@ -206,6 +210,11 @@ class RelayServer {
         _remember(hash);
         _received++;
         _lastReceivedAt = DateTime.now();
+        _receivedItems.add((
+          title: p.basename(normalized),
+          relativePath: normalized,
+          receivedAt: _lastReceivedAt!,
+        ));
         return _json(
             {'ok': true, 'relativePath': normalized, 'sha256': hash, 'size': size});
       }
@@ -217,7 +226,7 @@ class RelayServer {
     try {
       tmp.renameSync(dest.path);
     } catch (_) {
-      tmp.copySync(dest.path); // 別ボリューム等でrename不可ならコピー
+      tmp.copySync(dest.path);
       try {
         tmp.deleteSync();
       } catch (_) {}
@@ -227,6 +236,11 @@ class RelayServer {
     _remember(hash);
     _received++;
     _lastReceivedAt = DateTime.now();
+    _receivedItems.add((
+      title: p.basename(normalized),
+      relativePath: normalized,
+      receivedAt: _lastReceivedAt!,
+    ));
     return _json({
       'ok': true,
       'relativePath': normalized,
@@ -298,6 +312,11 @@ class RelayServer {
         _remember(hash);
         _received++;
         _lastReceivedAt = DateTime.now();
+        _receivedItems.add((
+          title: p.basename(normalized),
+          relativePath: normalized,
+          receivedAt: _lastReceivedAt!,
+        ));
         return _json(
             {'ok': true, 'relativePath': normalized, 'sha256': hash, 'size': size});
       }
@@ -319,6 +338,11 @@ class RelayServer {
     _remember(hash);
     _received++;
     _lastReceivedAt = DateTime.now();
+    _receivedItems.add((
+      title: p.basename(normalized),
+      relativePath: normalized,
+      receivedAt: _lastReceivedAt!,
+    ));
     return _json(
         {'ok': true, 'relativePath': normalized, 'sha256': hash, 'size': size});
   }

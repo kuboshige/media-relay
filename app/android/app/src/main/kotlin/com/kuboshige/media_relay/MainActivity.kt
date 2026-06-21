@@ -1,10 +1,12 @@
 package com.kuboshige.media_relay
 
+import android.content.ContentUris
 import android.content.Intent
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
+import android.provider.MediaStore
 import android.provider.Settings
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -44,6 +46,23 @@ class MainActivity : FlutterActivity() {
                         }
                     }
                 }.start()
+            } else if (call.method == "openAsset") {
+                val id = call.argument<String>("id")
+                val type = call.argument<Int>("type") ?: 1
+                if (id == null) { result.success(null); return@setMethodCallHandler }
+                try {
+                    val baseUri = if (type == 2)
+                        MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+                    else
+                        MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+                    val uri = ContentUris.withAppendedId(baseUri, id.toLong())
+                    val intent = Intent(Intent.ACTION_VIEW, uri)
+                    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    startActivity(intent)
+                    result.success(null)
+                } catch (e: Exception) {
+                    result.error("FAILED", e.message, null)
+                }
             } else {
                 result.notImplemented()
             }

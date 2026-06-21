@@ -8,6 +8,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'app_settings.dart';
 import 'media_store.dart';
+import 'received_files_page.dart';
 import 'receiver_service.dart';
 import 'relay_server.dart';
 import 'server_config.dart';
@@ -183,6 +184,30 @@ class _ReceiverPageState extends State<ReceiverPage> {
     return m > 0 ? 'あと ${m}分 ${s}秒で自動停止・画面オフ' : 'あと ${s}秒で自動停止・画面オフ';
   }
 
+  Widget _screenLockInfoCard() {
+    return Card(
+      color: Colors.teal.shade50,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.lock_open, color: Colors.teal, size: 20),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                '画面ロックしても受信サーバーは動き続けます。\n'
+                'ホームボタンで戻ったり電源ボタンで画面を消しても大丈夫です。\n'
+                'アプリを一度開くだけで、あとは充電しながら放置できます。',
+                style: TextStyle(fontSize: 12, color: Colors.teal),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _qrCard(String ip) {
     final data = ServerEntry.buildConnectUri(
         host: ip, port: _port, name: _deviceName);
@@ -319,9 +344,32 @@ class _ReceiverPageState extends State<ReceiverPage> {
             ),
             if (_server != null) ...[
               const SizedBox(height: 8),
-              Text('このセッションの受信: ${_server!.receivedThisSession} 件 / '
-                  '台帳: ${_server!.knownHashes} ハッシュ',
-                  style: Theme.of(context).textTheme.bodySmall),
+              GestureDetector(
+                onTap: _server!.receivedThisSession > 0
+                    ? () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ReceivedFilesPage(
+                                count: _server!.receivedThisSession),
+                          ),
+                        )
+                    : null,
+                child: Row(
+                  children: [
+                    Text(
+                      'このセッションの受信: ${_server!.receivedThisSession} 件 / '
+                      '台帳: ${_server!.knownHashes} ハッシュ',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    if (_server!.receivedThisSession > 0) ...[
+                      const SizedBox(width: 4),
+                      Icon(Icons.chevron_right,
+                          size: 14,
+                          color: Theme.of(context).colorScheme.primary),
+                    ],
+                  ],
+                ),
+              ),
               if (_server!.receivingName != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 6),
@@ -357,6 +405,7 @@ class _ReceiverPageState extends State<ReceiverPage> {
                 ),
             ],
             const SizedBox(height: 12),
+            if (running) _screenLockInfoCard(),
             if (_qrIp != null) _qrCard(_qrIp!),
             if (_error != null) ...[
               const SizedBox(height: 12),

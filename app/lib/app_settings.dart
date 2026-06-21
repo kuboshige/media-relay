@@ -7,6 +7,11 @@ class AppSettings {
   static const _kReceiverPort = 'receiverPort';
   static const _kDeviceName = 'deviceName';
   static const _kReceiverAutoStopMinutes = 'receiverAutoStopMinutes';
+  static const _kStartupAction = 'startupAction';
+
+  static const String startupActionNone = 'none';
+  static const String startupActionSend = 'send';
+  static const String startupActionSendAndDelete = 'sendAndDelete';
 
   /// この端末の表示名（受信モードのQRに載り、送信側に登録される名前）。
   static Future<String> deviceName() async {
@@ -60,6 +65,17 @@ class AppSettings {
   static Future<void> setReceiverAutoStopMinutes(int minutes) async {
     final p = await SharedPreferences.getInstance();
     await p.setInt(_kReceiverAutoStopMinutes, minutes);
+  }
+
+  /// 起動時の自動動作。
+  static Future<String> startupAction() async {
+    final p = await SharedPreferences.getInstance();
+    return p.getString(_kStartupAction) ?? startupActionNone;
+  }
+
+  static Future<void> setStartupAction(String action) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setString(_kStartupAction, action);
   }
 
   /// 最後に送信した時刻（ms）。未記録なら null。

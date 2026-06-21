@@ -1,8 +1,10 @@
 import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+import 'app_settings.dart';
 import 'media_source.dart';
 import 'server_config.dart';
 import 'uploader.dart';
@@ -141,6 +143,12 @@ class _HomePageState extends State<HomePage> {
     await NotifService.requestPermission();
     await NotifService.reschedule();
     _refreshFreeSpace();
+
+    // 起動時の自動動作
+    final startupAction = await AppSettings.startupAction();
+    if (startupAction != AppSettings.startupActionNone && mounted) {
+      await _runStartupAction(startupAction);
+    }
   }
 
   Future<void> _refreshFreeSpace() async {
@@ -783,6 +791,58 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _runStartupAction(String action) async {
+    if (_unsentCount == 0) return;
+    final server = _currentServer;
+    if (server == null) return;
+    final isDelete = action == AppSettings.startupActionSendAndDelete;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(isDelete ? '起動時に送信して削除' : '起動時に未送信を送信'),
+        content: Text(
+          '未送信 $_unsentCount 件を${isDelete ? "${server.name}に送信後、端末から削除します" : "${server.name}に送信します"}。\n\n'
+          '⚠️ ${server.name}のサーバーが起動している必要があります。\n'
+          '受信側アプリの「受信」タブでサーバーを開始してください。'
+          '${isDelete ? '\n\nGoogleフォトのバックアップが完了するまで時間がかかる場合があります。急がない場合は「スキップ」を選び、「送信」のみを使ってください。' : ''}',
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('スキップ')),
+          FilledButton(
+            style: isDelete
+                ? FilledButton.styleFrom(backgroundColor: Colors.red)
+                : null,
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(isDelete ? '送信して削除' : '送信開始'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final targets = _all.where((m) => !_sentIds.contains(m.id)).toList();
+    await _send(targets);
+    if (!mounted || !isDelete) return;
+    final sentItems = _lastOps
+        .where((o) => o.status == FileOpStatus.sent)
+        .map((o) => o.item)
+        .toList();
+    if (sentItems.isNotEmpty) {
+      await _deleteFromDevice(sentItems, skipConfirmation: true);
+    }
+  }
+
+  Future<void> _openPreview(MediaItem item) async {
+    try {
+      await const MethodChannel('com.kuboshige.media_relay/media_store')
+          .invokeMethod('openAsset', {
+        'id': item.id,
+        'type': item.isVideo ? 2 : 1,
+      });
+    } catch (_) {}
+  }
+
   void _showSnack(String msg) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
@@ -1082,13 +1142,18 @@ class _HomePageState extends State<HomePage> {
     final isSent = _sentIds.contains(item.id);
     return GestureDetector(
       onTap: () {
-        setState(() {
-          if (selected) {
-            _selected.remove(item.id);
-          } else {
-            _selected.add(item.id);
-          }
-        });
+        if (_selected.isEmpty) {
+          // 何も選択していない状態ではシステムビューアでプレビュー
+          _openPreview(item);
+        } else {
+          setState(() {
+            if (selected) {
+              _selected.remove(item.id);
+            } else {
+              _selected.add(item.id);
+            }
+          });
+        }
       },
       onLongPress: () {
         // 長押し：未選択なら選択に加えてから、選択分の操作メニューを出す

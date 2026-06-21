@@ -17,6 +17,7 @@ class _SettingsPageState extends State<SettingsPage> {
   List<ServerEntry> _servers = [];
   int _selected = 0;
   int _reminderDays = AppSettings.defaultReminderDays;
+  String _startupAction = AppSettings.startupActionNone;
   // 受信設定
   String _deviceName = '';
   int _receiverPort = AppSettings.defaultReceiverPort;
@@ -32,10 +33,49 @@ class _SettingsPageState extends State<SettingsPage> {
     _servers = await ServerConfig.load();
     _selected = await ServerConfig.selectedIndex();
     _reminderDays = await AppSettings.reminderDays();
+    _startupAction = await AppSettings.startupAction();
     _deviceName = await AppSettings.deviceName();
     _receiverPort = await AppSettings.receiverPort();
     _autoStopMinutes = await AppSettings.receiverAutoStopMinutes();
     setState(() {});
+  }
+
+  String _startupActionLabel(String v) {
+    switch (v) {
+      case AppSettings.startupActionSend:
+        return '未送信を自動送信';
+      case AppSettings.startupActionSendAndDelete:
+        return '未送信を送信して削除';
+      default:
+        return '何もしない';
+    }
+  }
+
+  Widget _startupActionTile() {
+    return ListTile(
+      leading: const Icon(Icons.play_circle_outline),
+      title: const Text('アプリを開いた時の動作'),
+      subtitle: Text(_startupActionLabel(_startupAction)),
+      trailing: DropdownButton<String>(
+        value: _startupAction,
+        onChanged: (v) async {
+          if (v == null) return;
+          await AppSettings.setStartupAction(v);
+          setState(() => _startupAction = v);
+        },
+        items: [
+          DropdownMenuItem(
+              value: AppSettings.startupActionNone,
+              child: Text(_startupActionLabel(AppSettings.startupActionNone))),
+          DropdownMenuItem(
+              value: AppSettings.startupActionSend,
+              child: Text(_startupActionLabel(AppSettings.startupActionSend))),
+          DropdownMenuItem(
+              value: AppSettings.startupActionSendAndDelete,
+              child: Text(_startupActionLabel(AppSettings.startupActionSendAndDelete))),
+        ],
+      ),
+    );
   }
 
   Future<void> _setReminderDays(int v) async {
@@ -205,6 +245,9 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
       body: Column(
         children: [
+          _sectionHeader('起動時の動作'),
+          _startupActionTile(),
+          const Divider(height: 1),
           _sectionHeader('通知'),
           _reminderTile(),
           const Divider(height: 1),

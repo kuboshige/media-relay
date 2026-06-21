@@ -44,6 +44,9 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Generate app icon
+        run: flutter pub run flutter_launcher_icons
+
       # GitHub Secret に署名キーがあれば復元する。無ければデバッグ署名でビルド継続。
       - name: Restore signing key
         env:
