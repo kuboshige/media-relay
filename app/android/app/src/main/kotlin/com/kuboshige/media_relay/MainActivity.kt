@@ -1,5 +1,6 @@
 package com.kuboshige.media_relay
 
+import android.content.Intent
 import android.os.Handler
 import android.os.Looper
 import io.flutter.embedding.android.FlutterActivity
@@ -42,6 +43,24 @@ class MainActivity : FlutterActivity() {
                 }.start()
             } else {
                 result.notImplemented()
+            }
+        }
+
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "com.kuboshige.media_relay/upload_service",
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "start" -> {
+                    startForegroundService(
+                        Intent(this, UploadForegroundService::class.java))
+                    result.success(null)
+                }
+                "stop" -> {
+                    stopService(Intent(this, UploadForegroundService::class.java))
+                    result.success(null)
+                }
+                else -> result.notImplemented()
             }
         }
     }

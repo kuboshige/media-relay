@@ -11,10 +11,20 @@ class QrScanPage extends StatefulWidget {
 }
 
 class _QrScanPageState extends State<QrScanPage> {
-  final MobileScannerController _controller = MobileScannerController(
-    autoStart: true,
-  );
+  late final MobileScannerController _controller;
   bool _handled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // autoStart: false にして、ウィジェット描画後に手動で開始する。
+    // MobileScanner のプラットフォームビュー（カメラテクスチャ）が確立される前に
+    // start() を呼ぶと Java 層で NPE が発生するため。
+    _controller = MobileScannerController(autoStart: false);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (mounted) await _controller.start();
+    });
+  }
 
   @override
   void dispose() {

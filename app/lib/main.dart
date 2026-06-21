@@ -6,6 +6,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import 'media_source.dart';
 import 'server_config.dart';
 import 'uploader.dart';
+import 'upload_service.dart';
 import 'settings_page.dart';
 import 'folder_config.dart';
 import 'folder_select_page.dart';
@@ -254,8 +255,9 @@ class _HomePageState extends State<HomePage> {
     int failed = 0;
     var stoppedForStorage = false;
 
-    // 送信中は画面を消さない（スリープで止まるのを防ぐ）
+    // 送信中は画面を消さない＋バックグラウンドに移動しても送信継続
     await WakelockPlus.enable();
+    await UploadService.start();
     try {
       for (var i = 0; i < targets.length; i++) {
         final item = targets[i];
@@ -361,6 +363,7 @@ class _HomePageState extends State<HomePage> {
       }
     } finally {
       await WakelockPlus.disable();
+      await UploadService.stop();
     }
 
     // 送信したファイルをGoogleフォトに出すため、MediaStoreへ登録させる。
@@ -449,6 +452,7 @@ class _HomePageState extends State<HomePage> {
     int fixed = 0;
     int miss = 0;
     await WakelockPlus.enable();
+    await UploadService.start();
     try {
       for (var i = 0; i < targets.length; i++) {
         final m = targets[i];
@@ -467,6 +471,7 @@ class _HomePageState extends State<HomePage> {
       }
     } finally {
       await WakelockPlus.disable();
+      await UploadService.stop();
     }
 
     final summary = '日付修正: 成功 $fixed 件 / 対象外 $miss 件';
