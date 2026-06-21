@@ -1,10 +1,9 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:photo_manager/photo_manager.dart';
 
-/// このセッションで受信したファイルのサムネイル一覧。
-/// photo_manager で最新 [count] 件を取得して表示する。
 class ReceivedFilesPage extends StatefulWidget {
   final int count;
   const ReceivedFilesPage({super.key, required this.count});
@@ -28,8 +27,10 @@ class _ReceivedFilesPageState extends State<ReceivedFilesPage> {
     try {
       final ps = await PhotoManager.requestPermissionExtend();
       if (!ps.isAuth && !ps.hasAccess) {
+        if (!mounted) return;
+        final l10n = AppLocalizations.of(context)!;
         setState(() {
-          _error = 'メディアへのアクセス権限がありません';
+          _error = l10n.noPermission;
           _loading = false;
         });
         return;
@@ -42,7 +43,6 @@ class _ReceivedFilesPageState extends State<ReceivedFilesPage> {
         setState(() => _loading = false);
         return;
       }
-      // hasAll: true の最初のパスが「すべてのメディア」アルバム
       final allPath = paths.first;
       final n = widget.count.clamp(1, 500);
       final assets = await allPath.getAssetListRange(start: 0, end: n);
@@ -96,6 +96,7 @@ class _ReceivedFilesPageState extends State<ReceivedFilesPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     Widget body;
     if (_loading) {
       body = const Center(child: CircularProgressIndicator());
@@ -106,7 +107,7 @@ class _ReceivedFilesPageState extends State<ReceivedFilesPage> {
         child: Text(_error!, textAlign: TextAlign.center),
       ));
     } else if (_assets.isEmpty) {
-      body = const Center(child: Text('表示できるファイルがありません'));
+      body = Center(child: Text(l10n.noFilesToShow));
     } else {
       body = GridView.builder(
         padding: const EdgeInsets.all(4),
@@ -122,7 +123,7 @@ class _ReceivedFilesPageState extends State<ReceivedFilesPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('受信ファイル（${widget.count}件）'),
+        title: Text(l10n.receivedFilesTitle(widget.count)),
       ),
       body: body,
     );

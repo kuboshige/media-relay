@@ -290,5 +290,518 @@
   "@copy": { "description": "Tooltip: copy" },
 
   "wifiLabel": "Wi-Fi",
-  "@wifiLabel": { "description": "Wi-Fi interface label" }
+  "@wifiLabel": { "description": "Wi-Fi interface label" },
+
+  "btnRetry": "再試行",
+  "@btnRetry": { "description": "Retry button" },
+
+  "btnConfirmDelete": "確認して削除",
+  "@btnConfirmDelete": { "description": "Confirm and delete button" },
+
+  "btnSkip": "スキップ",
+  "@btnSkip": { "description": "Skip button" },
+
+  "btnStartSend": "送信開始",
+  "@btnStartSend": { "description": "Start sending button" },
+
+  "btnClearHistory": "消去",
+  "@btnClearHistory": { "description": "Clear history button" },
+
+  "btnDeleteAnyway": "それでも削除",
+  "@btnDeleteAnyway": { "description": "Force delete button" },
+
+  "pageHistory": "送信履歴",
+  "@pageHistory": { "description": "History page title / tooltip" },
+
+  "folderTooltip": "送信対象フォルダ",
+  "@folderTooltip": { "description": "Folder icon tooltip" },
+
+  "deselectTooltip": "選択解除",
+  "@deselectTooltip": { "description": "Deselect tooltip in action bar" },
+
+  "menuHideSent": "送信済みを隠す",
+  "@menuHideSent": { "description": "Menu: hide sent files" },
+
+  "menuShowSent": "送信済みも表示",
+  "@menuShowSent": { "description": "Menu: show sent files" },
+
+  "menuSendAllUnsent": "未送信をすべて送信",
+  "@menuSendAllUnsent": { "description": "Menu / dialog title: send all unsent" },
+
+  "menuFixDates": "送信済みの日付を修正",
+  "@menuFixDates": { "description": "Menu / dialog title: fix dates" },
+
+  "menuDeleteAllSent": "送信済みを全件この端末から削除",
+  "@menuDeleteAllSent": { "description": "Menu: delete all sent from device" },
+
+  "serverBarNoServer": "送信先未設定 — 設定から登録してください",
+  "@serverBarNoServer": { "description": "Server bar when no server configured" },
+
+  "serverBarWithServer": "送信先: {name} ({host}:{port})",
+  "@serverBarWithServer": {
+    "description": "Server bar showing current server",
+    "placeholders": {
+      "name": { "type": "String" },
+      "host": { "type": "String" },
+      "port": { "type": "int" }
+    }
+  },
+
+  "freeSpaceSuffix": " · 空き {free}",
+  "@freeSpaceSuffix": {
+    "description": "Free space appended to server bar",
+    "placeholders": { "free": { "type": "String" } }
+  },
+
+  "destNameFallback": "送信先",
+  "@destNameFallback": { "description": "Fallback destination name" },
+
+  "statusBarAllMedia": "全 {total} 件（未送信 {unsent} 件）",
+  "@statusBarAllMedia": {
+    "description": "Status bar showing all media count",
+    "placeholders": {
+      "total": { "type": "int" },
+      "unsent": { "type": "int" }
+    }
+  },
+
+  "statusBarUnsent": "未送信 {count} 件",
+  "@statusBarUnsent": {
+    "description": "Status bar showing unsent count",
+    "placeholders": { "count": { "type": "int" } }
+  },
+
+  "fabSend": "送信 ({count})",
+  "@fabSend": {
+    "description": "FAB label",
+    "placeholders": { "count": { "type": "int" } }
+  },
+
+  "permissionDeniedBody": "メディアへのアクセスが許可されていません。\n設定アプリで権限を許可してください。",
+  "@permissionDeniedBody": { "description": "Media permission denied message" },
+
+  "noMediaInFolder": "対象フォルダにメディアがありません",
+  "@noMediaInFolder": { "description": "Empty state: no media in selected folders" },
+
+  "allMediaSent": "未送信のメディアはありません 🎉",
+  "@allMediaSent": { "description": "Empty state: all media sent" },
+
+  "labelDetail": "詳細",
+  "@labelDetail": { "description": "Details label in result bar" },
+
+  "selectedCount": "選択中: {count} 件",
+  "@selectedCount": {
+    "description": "Selection count in bottom sheet",
+    "placeholders": { "count": { "type": "int" } }
+  },
+
+  "actionBarSelected": "{count} 件選択中",
+  "@actionBarSelected": {
+    "description": "Selected count in action bar",
+    "placeholders": { "count": { "type": "int" } }
+  },
+
+  "actionSendSelected": "選んだ {count} 件を{dest}に送信",
+  "@actionSendSelected": {
+    "description": "Send selected action",
+    "placeholders": {
+      "count": { "type": "int" },
+      "dest": { "type": "String" }
+    }
+  },
+
+  "actionSendAndDeleteSelected": "選んだ {count} 件を送信して削除",
+  "@actionSendAndDeleteSelected": {
+    "description": "Send and delete selected action title",
+    "placeholders": { "count": { "type": "int" } }
+  },
+
+  "actionSendAndDeleteSubtitle": "{dest}に送信後、Googleフォト警告を確認してから端末から削除",
+  "@actionSendAndDeleteSubtitle": {
+    "description": "Send and delete action subtitle",
+    "placeholders": { "dest": { "type": "String" } }
+  },
+
+  "actionDeleteSelected": "選んだ {count} 件をこの端末から削除",
+  "@actionDeleteSelected": {
+    "description": "Delete selected action",
+    "placeholders": { "count": { "type": "int" } }
+  },
+
+  "actionDeleteOnlyConfirmed": "{dest}が受領済みのものだけ消します",
+  "@actionDeleteOnlyConfirmed": {
+    "description": "Delete only confirmed subtitle",
+    "placeholders": { "dest": { "type": "String" } }
+  },
+
+  "actionClearSelection": "選択をクリア",
+  "@actionClearSelection": { "description": "Clear selection action" },
+
+  "checkingServer": "サーバー確認中…",
+  "@checkingServer": { "description": "Status while checking server" },
+
+  "noFilesToSend": "送信するファイルを選択してください",
+  "@noFilesToSend": { "description": "Snackbar when no files selected" },
+
+  "noUnsentFiles": "未送信のファイルはありません",
+  "@noUnsentFiles": { "description": "Snackbar when no unsent files" },
+
+  "noServerSet": "先に設定で送信先サーバーを登録してください",
+  "@noServerSet": { "description": "Snackbar when no server configured" },
+
+  "fileGetFailed": "ファイルを取得できませんでした",
+  "@fileGetFailed": { "description": "Error when file retrieval fails" },
+
+  "alreadyExistsOn": "{name}に既に存在",
+  "@alreadyExistsOn": {
+    "description": "File already exists on server",
+    "placeholders": { "name": { "type": "String" } }
+  },
+
+  "sendingFile": "送信中 {index}/{total}: {title}",
+  "@sendingFile": {
+    "description": "Status while sending a file",
+    "placeholders": {
+      "index": { "type": "int" },
+      "total": { "type": "int" },
+      "title": { "type": "String" }
+    }
+  },
+
+  "sendingFileMb": "送信中 {index}/{total}: {title}  {sent}/{totalMb} MB{eta}",
+  "@sendingFileMb": {
+    "description": "Status while sending with MB progress",
+    "placeholders": {
+      "index": { "type": "int" },
+      "total": { "type": "int" },
+      "title": { "type": "String" },
+      "sent": { "type": "String" },
+      "totalMb": { "type": "String" },
+      "eta": { "type": "String" }
+    }
+  },
+
+  "storageFullStop": "{name}の空き容量不足で中断",
+  "@storageFullStop": {
+    "description": "Stopped due to insufficient storage",
+    "placeholders": { "name": { "type": "String" } }
+  },
+
+  "sendResult": "完了: 送信 {done} 件 / スキップ {skipped} 件 / 失敗 {failed} 件",
+  "@sendResult": {
+    "description": "Send result summary",
+    "placeholders": {
+      "done": { "type": "int" },
+      "skipped": { "type": "int" },
+      "failed": { "type": "int" }
+    }
+  },
+
+  "storageWarning": "⚠️ {name}の空き容量不足で中断しました",
+  "@storageWarning": {
+    "description": "Storage warning appended to send result",
+    "placeholders": { "name": { "type": "String" } }
+  },
+
+  "scanningPhotos": "{name}で写真を登録中…（Googleフォト用）",
+  "@scanningPhotos": {
+    "description": "Status while scanning photos on server",
+    "placeholders": { "name": { "type": "String" } }
+  },
+
+  "scanFailed": "Googleフォト登録失敗 — Pixel側で termux-api のセットアップが必要です",
+  "@scanFailed": { "description": "Scan failed message" },
+
+  "scanSetupNeeded": "Pixel側で termux-api のセットアップが必要です（Googleフォトに表示されません）",
+  "@scanSetupNeeded": { "description": "Scan setup needed message" },
+
+  "etaHoursMinutes": "{hours}時間{minutes}分",
+  "@etaHoursMinutes": {
+    "description": "ETA in hours and minutes",
+    "placeholders": {
+      "hours": { "type": "int" },
+      "minutes": { "type": "int" }
+    }
+  },
+
+  "etaMinutesSeconds": "{minutes}分{seconds}秒",
+  "@etaMinutesSeconds": {
+    "description": "ETA in minutes and seconds",
+    "placeholders": {
+      "minutes": { "type": "int" },
+      "seconds": { "type": "int" }
+    }
+  },
+
+  "etaSeconds": "{seconds}秒",
+  "@etaSeconds": {
+    "description": "ETA in seconds only",
+    "placeholders": { "seconds": { "type": "int" } }
+  },
+
+  "etaSuffix": " · あと{eta}",
+  "@etaSuffix": {
+    "description": "ETA suffix appended to progress",
+    "placeholders": { "eta": { "type": "String" } }
+  },
+
+  "noSentFiles": "送信済みのファイルがありません",
+  "@noSentFiles": { "description": "Snackbar when no sent files" },
+
+  "fixDatesContent": "{count} 件の撮影日付を{name}側で修正します（再転送はしません）。よろしいですか？",
+  "@fixDatesContent": {
+    "description": "Fix dates dialog content",
+    "placeholders": {
+      "count": { "type": "int" },
+      "name": { "type": "String" }
+    }
+  },
+
+  "fixingDates": "日付を修正中 {index}/{total}",
+  "@fixingDates": {
+    "description": "Status while fixing dates",
+    "placeholders": {
+      "index": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
+
+  "rescanningPhotos": "{name}で再登録中…（Googleフォト用）",
+  "@rescanningPhotos": {
+    "description": "Status while rescanning photos",
+    "placeholders": { "name": { "type": "String" } }
+  },
+
+  "fixDateResult": "日付修正: 成功 {fixed} 件 / 対象外 {miss} 件",
+  "@fixDateResult": {
+    "description": "Fix date result summary",
+    "placeholders": {
+      "fixed": { "type": "int" },
+      "miss": { "type": "int" }
+    }
+  },
+
+  "noDeleteTargets": "削除対象がありません",
+  "@noDeleteTargets": { "description": "Snackbar when nothing to delete" },
+
+  "deleteFromDeviceTitle": "この端末から削除",
+  "@deleteFromDeviceTitle": { "description": "Delete from device dialog title" },
+
+  "deleteFromDeviceContent": "{count} 件をこの端末から削除します。\n\n・削除直前に{name}が受領済みか1件ずつ確認し、確認できたものだけ消します\n  （{name}で「空き容量を増やす」をしてディスクから消えていてもOK）\n・{name}（とGoogleフォトなどのクラウドBK）側のコピーは残ります\n・実行すると端末の削除確認ダイアログが出ます\n\n※ {name}側のバックアップ完了を確認してから実行してください",
+  "@deleteFromDeviceContent": {
+    "description": "Delete from device dialog content",
+    "placeholders": {
+      "count": { "type": "int" },
+      "name": { "type": "String" }
+    }
+  },
+
+  "verifyingReceipt": "{name}受領確認中 {index}/{total}: {title}",
+  "@verifyingReceipt": {
+    "description": "Status while verifying receipt",
+    "placeholders": {
+      "name": { "type": "String" },
+      "index": { "type": "int" },
+      "total": { "type": "int" },
+      "title": { "type": "String" }
+    }
+  },
+
+  "hashFailed": "ハッシュ計算に失敗しました",
+  "@hashFailed": { "description": "Error when hash computation fails" },
+
+  "notInLedger": "{name}の受領記録にありません（まず送信してください）",
+  "@notInLedger": {
+    "description": "File not in server receipt ledger",
+    "placeholders": { "name": { "type": "String" } }
+  },
+
+  "nothingVerified": "{name}が受領済みのファイルがありませんでした（削除中止）",
+  "@nothingVerified": {
+    "description": "No files verified for deletion",
+    "placeholders": { "name": { "type": "String" } }
+  },
+
+  "deletingPrompt": "削除中…（端末の確認ダイアログで許可してください）",
+  "@deletingPrompt": { "description": "Status while awaiting system delete" },
+
+  "deleteFailed": "削除に失敗しました: {error}",
+  "@deleteFailed": {
+    "description": "Delete failed snackbar",
+    "placeholders": { "error": { "type": "String" } }
+  },
+
+  "deleteLocalFailed": "端末の削除処理が失敗しました",
+  "@deleteLocalFailed": { "description": "System delete failed reason" },
+
+  "deleteResultUnconfirmed": "削除: {deleted} 件 / 未確認でスキップ {unconfirmed} 件",
+  "@deleteResultUnconfirmed": {
+    "description": "Delete result with unconfirmed count",
+    "placeholders": {
+      "deleted": { "type": "int" },
+      "unconfirmed": { "type": "int" }
+    }
+  },
+
+  "deleteResultFailed": "削除: {deleted} 件 / 失敗 {failed} 件",
+  "@deleteResultFailed": {
+    "description": "Force delete result",
+    "placeholders": {
+      "deleted": { "type": "int" },
+      "failed": { "type": "int" }
+    }
+  },
+
+  "sendAndDeleteTitle": "送信して削除",
+  "@sendAndDeleteTitle": { "description": "Send and delete dialog title / button" },
+
+  "sendAndDeleteContent": "{count} 件を{dest}に送信後、送信できたファイルをこの端末から削除します。\n\n⚠️ {dest}側でGoogleフォト等のクラウドバックアップが完了するまでに時間がかかる場合があります。削除を急がない場合は「送信のみ」を使い、バックアップ完了後に別途削除することをお勧めします。",
+  "@sendAndDeleteContent": {
+    "description": "Send and delete dialog content",
+    "placeholders": {
+      "count": { "type": "int" },
+      "dest": { "type": "String" }
+    }
+  },
+
+  "sendAllUnsentContent": "{count} 件を送信します。よろしいですか？",
+  "@sendAllUnsentContent": {
+    "description": "Send all unsent dialog content",
+    "placeholders": { "count": { "type": "int" } }
+  },
+
+  "startupSendDeleteTitle": "起動時に送信して削除",
+  "@startupSendDeleteTitle": { "description": "Startup send-and-delete dialog title" },
+
+  "startupSendTitle": "起動時に未送信を送信",
+  "@startupSendTitle": { "description": "Startup send dialog title" },
+
+  "startupSendDeleteContent": "未送信 {count} 件を{name}に送信後、端末から削除します。\n\n⚠️ {name}のサーバーが起動している必要があります。\n受信側アプリの「受信」タブでサーバーを開始してください。\n\nGoogleフォトのバックアップが完了するまで時間がかかる場合があります。急がない場合は「スキップ」を選び、「送信」のみを使ってください。",
+  "@startupSendDeleteContent": {
+    "description": "Startup send-and-delete dialog content",
+    "placeholders": {
+      "count": { "type": "int" },
+      "name": { "type": "String" }
+    }
+  },
+
+  "startupSendContent": "未送信 {count} 件を{name}に送信します。\n\n⚠️ {name}のサーバーが起動している必要があります。\n受信側アプリの「受信」タブでサーバーを開始してください。",
+  "@startupSendContent": {
+    "description": "Startup send dialog content",
+    "placeholders": {
+      "count": { "type": "int" },
+      "name": { "type": "String" }
+    }
+  },
+
+  "connectionFailedTitle": "接続できませんでした",
+  "@connectionFailedTitle": { "description": "Connection failed dialog title" },
+
+  "connectionFailedContent": "{name}（{host}:{port}）に接続できません。\n\n確認してください：\n・受信側アプリの「受信」タブでサーバーを開始しているか\n・2台が同じWi-Fiに繋がっているか\n  ルーターが2.4GHzと5GHzを別々に出している場合は\n  同じ帯域（どちらか一方）に揃えてください\n・ルーターの「APアイソレーション（クライアント分離）」\n  がオンになっていると端末同士が繋がりません",
+  "@connectionFailedContent": {
+    "description": "Connection failed dialog content",
+    "placeholders": {
+      "name": { "type": "String" },
+      "host": { "type": "String" },
+      "port": { "type": "int" }
+    }
+  },
+
+  "scanSetupTitle": "Googleフォトに表示するには",
+  "@scanSetupTitle": { "description": "Scan setup dialog title" },
+
+  "reindexing": "クイックシェアのファイルを索引に追加中…",
+  "@reindexing": { "description": "Status while reindexing" },
+
+  "reindexDone": "索引を更新しました（合計 {count} 件）",
+  "@reindexDone": {
+    "description": "Reindex done snackbar",
+    "placeholders": { "count": { "type": "int" } }
+  },
+
+  "cannotConnectServer": "{name}に接続できませんでした",
+  "@cannotConnectServer": {
+    "description": "Cannot connect snackbar",
+    "placeholders": { "name": { "type": "String" } }
+  },
+
+  "historyStats": "直近 {total} 件 — 送信 {sent} / スキップ {skipped} / 失敗 {failed}",
+  "@historyStats": {
+    "description": "History stats bar",
+    "placeholders": {
+      "total": { "type": "int" },
+      "sent": { "type": "int" },
+      "skipped": { "type": "int" },
+      "failed": { "type": "int" }
+    }
+  },
+
+  "historyEmpty": "まだ履歴はありません",
+  "@historyEmpty": { "description": "History empty state" },
+
+  "clearHistoryTitle": "履歴を消去",
+  "@clearHistoryTitle": { "description": "Clear history dialog title / tooltip" },
+
+  "clearHistoryContent": "送信履歴をすべて消去します（送信済みの判定には影響しません）。",
+  "@clearHistoryContent": { "description": "Clear history dialog content" },
+
+  "historySent": "送信",
+  "@historySent": { "description": "History status: sent" },
+
+  "historySkipped": "スキップ",
+  "@historySkipped": { "description": "History status: skipped" },
+
+  "historyFailed": "失敗",
+  "@historyFailed": { "description": "History status: failed" },
+
+  "resultDetailTitle": "操作結果（{count} 件）",
+  "@resultDetailTitle": {
+    "description": "Result detail page title",
+    "placeholders": { "count": { "type": "int" } }
+  },
+
+  "resultDetailEmpty": "表示する項目がありません",
+  "@resultDetailEmpty": { "description": "Result detail empty state" },
+
+  "statusSent": "送信完了",
+  "@statusSent": { "description": "File op status: sent" },
+
+  "statusSkipped": "スキップ（重複）",
+  "@statusSkipped": { "description": "File op status: skipped" },
+
+  "statusFailed": "失敗",
+  "@statusFailed": { "description": "File op status: failed" },
+
+  "statusDeleted": "削除完了",
+  "@statusDeleted": { "description": "File op status: deleted" },
+
+  "statusUnconfirmed": "未確認スキップ",
+  "@statusUnconfirmed": { "description": "File op status: unconfirmed" },
+
+  "deleteWithoutBackupTitle": "バックアップなしで削除",
+  "@deleteWithoutBackupTitle": { "description": "Force delete dialog title" },
+
+  "deleteWithoutBackupContent": "{count} 件は受信側での受領が確認できていません。\n\nこのまま削除すると、ファイルはバックアップされずにこの端末から永久に消えます。\n\nよろしいですか？",
+  "@deleteWithoutBackupContent": {
+    "description": "Force delete dialog content",
+    "placeholders": { "count": { "type": "int" } }
+  },
+
+  "receivedFilesTitle": "受信ファイル（{count}件）",
+  "@receivedFilesTitle": {
+    "description": "Received files page title",
+    "placeholders": { "count": { "type": "int" } }
+  },
+
+  "noPermission": "メディアへのアクセス権限がありません",
+  "@noPermission": { "description": "No media permission error" },
+
+  "noFilesToShow": "表示できるファイルがありません",
+  "@noFilesToShow": { "description": "No files to display" },
+
+  "errorPrefix": "エラー: {error}",
+  "@errorPrefix": {
+    "description": "Error prefix",
+    "placeholders": { "error": { "type": "String" } }
+  }
 }

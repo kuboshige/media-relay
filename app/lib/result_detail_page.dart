@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'media_source.dart';
 
@@ -14,18 +15,18 @@ class FileOp {
   bool get needsAttention =>
       status == FileOpStatus.failed || status == FileOpStatus.unconfirmed;
 
-  String get statusLabel {
+  String statusLabel(AppLocalizations l10n) {
     switch (status) {
       case FileOpStatus.sent:
-        return '送信完了';
+        return l10n.statusSent;
       case FileOpStatus.skipped:
-        return 'スキップ（重複）';
+        return l10n.statusSkipped;
       case FileOpStatus.failed:
-        return '失敗';
+        return l10n.statusFailed;
       case FileOpStatus.deleted:
-        return '削除完了';
+        return l10n.statusDeleted;
       case FileOpStatus.unconfirmed:
-        return '未確認スキップ';
+        return l10n.statusUnconfirmed;
     }
   }
 
@@ -45,11 +46,9 @@ class FileOp {
   }
 }
 
-/// ResultDetailPage から返る操作指示。
 class DetailPageResult {
   final List<MediaItem> toSend;
   final List<MediaItem> toDelete;
-  /// true のとき、受領確認をスキップして強制削除する（確認ダイアログは呼び出し元で表示済み）。
   final bool forcedDelete;
   const DetailPageResult({
     this.toSend = const [],
@@ -58,8 +57,6 @@ class DetailPageResult {
   });
 }
 
-/// 送信・削除の操作結果をファイルごとに表示するページ。
-/// サムネタップで選択 → アクションバーから再送信 or 削除 を実行できる。
 class ResultDetailPage extends StatefulWidget {
   final List<FileOp> ops;
   final String serverName;
@@ -97,26 +94,23 @@ class _ResultDetailPageState extends State<ResultDetailPage> {
       });
 
   Future<void> _onDeleteTapped() async {
+    final l10n = AppLocalizations.of(context)!;
     final items = _selectedItems;
     if (items.isEmpty) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('バックアップなしで削除'),
-        content: Text(
-          '${items.length} 件は受信側での受領が確認できていません。\n\n'
-          'このまま削除すると、ファイルはバックアップされずにこの端末から永久に消えます。\n\n'
-          'よろしいですか？',
-        ),
+        title: Text(l10n.deleteWithoutBackupTitle),
+        content: Text(l10n.deleteWithoutBackupContent(items.length)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('キャンセル'),
+            child: Text(l10n.btnCancel),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('それでも削除'),
+            child: Text(l10n.btnDeleteAnyway),
           ),
         ],
       ),
@@ -128,16 +122,19 @@ class _ResultDetailPageState extends State<ResultDetailPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final errorCount = widget.ops.where((o) => o.needsAttention).length;
     return Scaffold(
       appBar: AppBar(
-        title: Text('操作結果（${widget.ops.length} 件）'),
+        title: Text(l10n.resultDetailTitle(widget.ops.length)),
         actions: [
           if (errorCount > 0)
             Padding(
               padding: const EdgeInsets.only(right: 8),
               child: FilterChip(
-                label: Text(_errorsOnly ? 'エラー $errorCount 件' : 'すべて'),
+                label: Text(_errorsOnly
+                    ? '${l10n.statusFailed} $errorCount'
+                    : l10n.btnClose),
                 selected: _errorsOnly,
                 onSelected: (v) => setState(() {
                   _errorsOnly = v;
@@ -153,6 +150,7 @@ class _ResultDetailPageState extends State<ResultDetailPage> {
             _ActionBar(
               count: _selected.length,
               serverName: widget.serverName,
+              l10n: l10n,
               onSend: () => Navigator.pop(
                 context,
                 DetailPageResult(toSend: _selectedItems),
@@ -162,7 +160,7 @@ class _ResultDetailPageState extends State<ResultDetailPage> {
             ),
           Expanded(
             child: _visible.isEmpty
-                ? const Center(child: Text('表示する項目がありません'))
+                ? Center(child: Text(l10n.resultDetailEmpty))
                 : ListView.builder(
                     itemCount: _visible.length,
                     itemBuilder: (_, i) {
@@ -184,6 +182,7 @@ class _ResultDetailPageState extends State<ResultDetailPage> {
 class _ActionBar extends StatelessWidget {
   final int count;
   final String serverName;
+  final AppLocalizations l10n;
   final VoidCallback onSend;
   final VoidCallback onDelete;
   final VoidCallback onClear;
@@ -191,6 +190,7 @@ class _ActionBar extends StatelessWidget {
   const _ActionBar({
     required this.count,
     required this.serverName,
+    required this.l10n,
     required this.onSend,
     required this.onDelete,
     required this.onClear,
@@ -203,21 +203,21 @@ class _ActionBar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: Row(
         children: [
-          Text('$count 件選択中',
+          Text(l10n.actionBarSelected(count),
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
           const Spacer(),
           TextButton.icon(
             onPressed: onSend,
             icon: const Icon(Icons.upload, size: 16),
-            label: const Text('送信', style: TextStyle(fontSize: 13)),
+            label: Text(l10n.btnSend, style: const TextStyle(fontSize: 13)),
             style: TextButton.styleFrom(
                 visualDensity: VisualDensity.compact, padding: EdgeInsets.zero),
           ),
           TextButton.icon(
             onPressed: onDelete,
             icon: const Icon(Icons.delete_outline, size: 16, color: Colors.red),
-            label: const Text('削除',
-                style: TextStyle(color: Colors.red, fontSize: 13)),
+            label: Text(l10n.btnDelete,
+                style: const TextStyle(color: Colors.red, fontSize: 13)),
             style: TextButton.styleFrom(
                 visualDensity: VisualDensity.compact, padding: EdgeInsets.zero),
           ),
@@ -225,7 +225,7 @@ class _ActionBar extends StatelessWidget {
             icon: const Icon(Icons.close, size: 18),
             visualDensity: VisualDensity.compact,
             onPressed: onClear,
-            tooltip: '選択解除',
+            tooltip: l10n.deselectTooltip,
           ),
         ],
       ),
@@ -246,6 +246,7 @@ class _FileOpTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final color = op.statusColor();
     return InkWell(
       onTap: onToggle,
@@ -257,7 +258,6 @@ class _FileOpTile extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // サムネイル（選択時はオーバーレイ）
             SizedBox(
               width: 60,
               height: 60,
@@ -301,7 +301,6 @@ class _FileOpTile extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            // ファイル情報
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -314,7 +313,6 @@ class _FileOpTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
-                  // ステータスチップ
                   Container(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -324,7 +322,7 @@ class _FileOpTile extends StatelessWidget {
                       border: Border.all(color: color.withValues(alpha: 0.5)),
                     ),
                     child: Text(
-                      op.statusLabel,
+                      op.statusLabel(l10n),
                       style: TextStyle(
                           fontSize: 11,
                           color: color,

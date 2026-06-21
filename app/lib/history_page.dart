@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'sent_store.dart';
 
-/// 送信履歴（ログ）画面。送信 / スキップ / 失敗を新しい順で表示する。
 class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key});
 
@@ -28,18 +28,19 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   Future<void> _clear() async {
+    final l10n = AppLocalizations.of(context)!;
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('履歴を消去'),
-        content: const Text('送信履歴をすべて消去します（送信済みの判定には影響しません）。'),
+        title: Text(l10n.clearHistoryTitle),
+        content: Text(l10n.clearHistoryContent),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('キャンセル')),
+              child: Text(l10n.btnCancel)),
           FilledButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('消去')),
+              child: Text(l10n.btnClearHistory)),
         ],
       ),
     );
@@ -49,14 +50,15 @@ class _HistoryPageState extends State<HistoryPage> {
     }
   }
 
-  ({IconData icon, Color color, String label}) _style(String status) {
+  ({IconData icon, Color color, String label}) _style(
+      String status, AppLocalizations l10n) {
     switch (status) {
       case 'sent':
-        return (icon: Icons.check_circle, color: Colors.green, label: '送信');
+        return (icon: Icons.check_circle, color: Colors.green, label: l10n.historySent);
       case 'skipped':
-        return (icon: Icons.skip_next, color: Colors.blueGrey, label: 'スキップ');
+        return (icon: Icons.skip_next, color: Colors.blueGrey, label: l10n.historySkipped);
       default:
-        return (icon: Icons.error, color: Colors.red, label: '失敗');
+        return (icon: Icons.error, color: Colors.red, label: l10n.historyFailed);
     }
   }
 
@@ -69,13 +71,14 @@ class _HistoryPageState extends State<HistoryPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final sent = _logs.where((l) => l['status'] == 'sent').length;
     final skipped = _logs.where((l) => l['status'] == 'skipped').length;
     final failed = _logs.where((l) => l['status'] == 'failed').length;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('送信履歴'),
+        title: Text(l10n.pageHistory),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -83,7 +86,7 @@ class _HistoryPageState extends State<HistoryPage> {
           ),
           IconButton(
             icon: const Icon(Icons.delete_sweep),
-            tooltip: '履歴を消去',
+            tooltip: l10n.clearHistoryTitle,
             onPressed: _clear,
           ),
         ],
@@ -96,19 +99,20 @@ class _HistoryPageState extends State<HistoryPage> {
                   width: double.infinity,
                   color: Colors.teal.withValues(alpha: 0.08),
                   padding: const EdgeInsets.all(10),
-                  child: Text(
-                      '直近 ${_logs.length} 件 — 送信 $sent / スキップ $skipped / 失敗 $failed'),
+                  child: Text(l10n.historyStats(
+                      _logs.length, sent, skipped, failed)),
                 ),
                 Expanded(
                   child: _logs.isEmpty
-                      ? const Center(child: Text('まだ履歴はありません'))
+                      ? Center(child: Text(l10n.historyEmpty))
                       : ListView.separated(
                           itemCount: _logs.length,
                           separatorBuilder: (_, __) =>
                               const Divider(height: 1),
                           itemBuilder: (context, i) {
                             final l = _logs[i];
-                            final s = _style(l['status'] as String? ?? '');
+                            final s = _style(
+                                l['status'] as String? ?? '', l10n);
                             final detail = l['detail'] as String?;
                             return ListTile(
                               dense: true,

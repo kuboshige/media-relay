@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -14,7 +15,6 @@ import 'receiver_service.dart';
 import 'relay_server.dart';
 import 'server_config.dart';
 
-/// 受信モード画面（この端末＝Pixelをサーバーにする）。
 class ReceiverPage extends StatefulWidget {
   const ReceiverPage({super.key});
 
@@ -39,7 +39,6 @@ class _ReceiverPageState extends State<ReceiverPage> {
   @override
   void initState() {
     super.initState();
-    // 設定値を先読みして表示する（サーバー起動は手動で行う）。
     _loadSettings();
   }
 
@@ -72,7 +71,6 @@ class _ReceiverPageState extends State<ReceiverPage> {
       _error = null;
     });
     try {
-      // 設定の最新値を反映（設定タブで変更されている可能性がある）。
       _port = await AppSettings.receiverPort();
       _deviceName = await AppSettings.deviceName();
       _autoStopMinutes = await AppSettings.receiverAutoStopMinutes();
@@ -114,7 +112,6 @@ class _ReceiverPageState extends State<ReceiverPage> {
         _server = server;
         _busy = false;
       });
-      // 電池最適化の除外状態を確認し、未設定なら設定ガイドを表示する
       final isIgnored = await ReceiverService.isBatteryOptimizationIgnored();
       if (!isIgnored && mounted) _showBatteryOptimizationDialog();
     } catch (e) {
@@ -126,27 +123,23 @@ class _ReceiverPageState extends State<ReceiverPage> {
   }
 
   void _showBatteryOptimizationDialog() {
+    final l10n = AppLocalizations.of(context)!;
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('バックグラウンド受信の安定化'),
-        content: const Text(
-          'アプリを小さくしたり画面を消すと、Androidが受信サーバーを止める場合があります。\n\n'
-          '「電池の最適化」でこのアプリを除外すると、バックグラウンドでも安定して受信できます。\n\n'
-          '次の画面で このアプリ →「最適化しない」を選んでください。\n\n'
-          'Pixel以外の機種でも止まる場合は「設定」→「情報」→ dontkillmyapp.com を参照してください。',
-        ),
+        title: Text(l10n.batteryDialogTitle),
+        content: Text(l10n.batteryDialogBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('後で設定する'),
+            child: Text(l10n.batteryDialogLater),
           ),
           FilledButton(
             onPressed: () async {
               Navigator.pop(context);
               await ReceiverService.requestIgnoreBatteryOptimization();
             },
-            child: const Text('設定を開く'),
+            child: Text(l10n.batteryDialogOpen),
           ),
         ],
       ),
@@ -188,7 +181,7 @@ class _ReceiverPageState extends State<ReceiverPage> {
 
   String? get _qrIp => _visibleIps.isEmpty ? null : _visibleIps.first.ip;
 
-  String? get _autoStopCountdown {
+  String? _autoStopCountdown(AppLocalizations l10n) {
     if (_autoStopMinutes <= 0 || _server == null) return null;
     final last = _server!.lastReceivedAt ?? _serverStartedAt;
     if (last == null) return null;
@@ -197,10 +190,12 @@ class _ReceiverPageState extends State<ReceiverPage> {
     if (remaining.isNegative) return null;
     final m = remaining.inMinutes;
     final s = remaining.inSeconds % 60;
-    return m > 0 ? 'あと ${m}分 ${s}秒で自動停止・画面オフ' : 'あと ${s}秒で自動停止・画面オフ';
+    return m > 0
+        ? l10n.autoStopCountdownMinutes(m, s)
+        : l10n.autoStopCountdownSeconds(s);
   }
 
-  Widget _screenLockInfoCard() {
+  Widget _screenLockInfoCard(AppLocalizations l10n) {
     return Card(
       color: Colors.teal.shade50,
       child: Padding(
@@ -210,12 +205,10 @@ class _ReceiverPageState extends State<ReceiverPage> {
           children: [
             const Icon(Icons.lock_open, color: Colors.teal, size: 20),
             const SizedBox(width: 12),
-            const Expanded(
+            Expanded(
               child: Text(
-                '画面ロックしても受信サーバーは動き続けます。\n'
-                'ホームボタンで戻ったり電源ボタンで画面を消しても大丈夫です。\n'
-                'アプリを一度開くだけで、あとは充電しながら放置できます。',
-                style: TextStyle(fontSize: 12, color: Colors.teal),
+                l10n.screenLockInfoText,
+                style: const TextStyle(fontSize: 12, color: Colors.teal),
               ),
             ),
           ],
@@ -224,7 +217,7 @@ class _ReceiverPageState extends State<ReceiverPage> {
     );
   }
 
-  Widget _qrCard(String ip) {
+  Widget _qrCard(String ip, AppLocalizations l10n) {
     final data = ServerEntry.buildConnectUri(
         host: ip, port: _port, name: _deviceName, token: _token);
     return Card(
@@ -232,7 +225,7 @@ class _ReceiverPageState extends State<ReceiverPage> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            Text('名前: $_deviceName',
+            Text('${l10n.deviceNameLabel}: $_deviceName',
                 style: Theme.of(context).textTheme.titleMedium,
                 overflow: TextOverflow.ellipsis),
             const SizedBox(height: 8),
@@ -254,16 +247,19 @@ class _ReceiverPageState extends State<ReceiverPage> {
                   const SizedBox(width: 4),
                   SelectableText(
                     'token: $_token',
-                    style: const TextStyle(fontSize: 12, fontFamily: 'monospace', color: Colors.teal),
+                    style: const TextStyle(
+                        fontSize: 12,
+                        fontFamily: 'monospace',
+                        color: Colors.teal),
                   ),
                 ],
               ),
             ],
             const SizedBox(height: 8),
-            const Text(
-              '送信側の「設定」→「QRで追加」で読み取ってください',
+            Text(
+              l10n.receiverQrHint,
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13),
+              style: const TextStyle(fontSize: 13),
             ),
           ],
         ),
@@ -271,9 +267,13 @@ class _ReceiverPageState extends State<ReceiverPage> {
     );
   }
 
-  Widget _ipRow(({String ip, String iface, bool wifi, bool virtual}) e) {
+  Widget _ipRow(
+      ({String ip, String iface, bool wifi, bool virtual}) e,
+      AppLocalizations l10n) {
     final addr = '${e.ip}:$_port';
-    final label = e.wifi ? 'Wi-Fi' : (e.virtual ? '${e.iface}(VPN等)' : e.iface);
+    final label = e.wifi
+        ? l10n.wifiLabel
+        : (e.virtual ? '${e.iface}(VPN等)' : e.iface);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
@@ -292,11 +292,11 @@ class _ReceiverPageState extends State<ReceiverPage> {
           ),
           IconButton(
             icon: const Icon(Icons.copy),
-            tooltip: 'コピー',
+            tooltip: l10n.copy,
             onPressed: () {
               Clipboard.setData(ClipboardData(text: addr));
               ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('コピーしました')));
+                  SnackBar(content: Text(l10n.copyDone)));
             },
           ),
         ],
@@ -306,10 +306,11 @@ class _ReceiverPageState extends State<ReceiverPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final running = _server?.running ?? false;
-    final countdown = _autoStopCountdown;
+    final countdown = _autoStopCountdown(l10n);
     return Scaffold(
-      appBar: AppBar(title: const Text('受信')),
+      appBar: AppBar(title: Text(l10n.tabReceive)),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -326,14 +327,17 @@ class _ReceiverPageState extends State<ReceiverPage> {
                         Icon(running ? Icons.wifi_tethering : Icons.wifi_off,
                             color: running ? Colors.green : Colors.grey),
                         const SizedBox(width: 8),
-                        Text(running ? '受信中' : '停止中',
+                        Text(
+                            running
+                                ? l10n.statusReceiving
+                                : l10n.statusStopped,
                             style: Theme.of(context).textTheme.titleMedium),
                         const Spacer(),
                         FilledButton.icon(
                           onPressed: _busy ? null : (running ? _stop : _start),
                           icon: Icon(running ? Icons.stop : Icons.play_arrow,
                               size: 18),
-                          label: Text(running ? '停止' : '開始'),
+                          label: Text(running ? l10n.btnStop : l10n.btnStart),
                           style: FilledButton.styleFrom(
                             backgroundColor:
                                 running ? Colors.red.shade400 : null,
@@ -344,13 +348,13 @@ class _ReceiverPageState extends State<ReceiverPage> {
                     ),
                     if (running) ...[
                       const SizedBox(height: 12),
-                      const Text('このアドレスを送信側に登録:'),
+                      Text(l10n.receiverAddressHint),
                       const SizedBox(height: 4),
                       if (_ips.isEmpty)
-                        const Text('(IP取得中)',
-                            style: TextStyle(fontStyle: FontStyle.italic))
+                        Text(l10n.receiverIpPending,
+                            style: const TextStyle(fontStyle: FontStyle.italic))
                       else ...[
-                        for (final ip in _visibleIps) _ipRow(ip),
+                        for (final ip in _visibleIps) _ipRow(ip, l10n),
                         if (_hiddenVirtualCount > 0)
                           TextButton.icon(
                             onPressed: () =>
@@ -359,13 +363,13 @@ class _ReceiverPageState extends State<ReceiverPage> {
                                 ? Icons.visibility_off
                                 : Icons.visibility),
                             label: Text(_showAllIps
-                                ? 'VPN等のアドレスを隠す'
-                                : 'VPN等のアドレスも表示 ($_hiddenVirtualCount)'),
+                                ? l10n.vpnAddressHide
+                                : l10n.vpnAddressShow(_hiddenVirtualCount)),
                           ),
                       ],
                     ] else ...[
                       const SizedBox(height: 8),
-                      Text('「開始」で受信サーバーを起動します（ポート: $_port）',
+                      Text(l10n.receiverStartHint(_port),
                           style: Theme.of(context).textTheme.bodySmall),
                     ],
                   ],
@@ -387,8 +391,9 @@ class _ReceiverPageState extends State<ReceiverPage> {
                 child: Row(
                   children: [
                     Text(
-                      'このセッションの受信: ${_server!.receivedThisSession} 件 / '
-                      '台帳: ${_server!.knownHashes} ハッシュ',
+                      l10n.receiverSessionCount(
+                          _server!.receivedThisSession,
+                          _server!.knownHashes),
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                     if (_server!.receivedThisSession > 0) ...[
@@ -412,8 +417,10 @@ class _ReceiverPageState extends State<ReceiverPage> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          '受信中: ${_server!.receivingName} '
-                          '(${(_server!.receivingBytes / 1024 / 1024).toStringAsFixed(1)} MB)',
+                          l10n.receiverInProgress(
+                              _server!.receivingName!,
+                              (_server!.receivingBytes / 1024 / 1024)
+                                  .toStringAsFixed(1)),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -435,11 +442,12 @@ class _ReceiverPageState extends State<ReceiverPage> {
                 ),
             ],
             const SizedBox(height: 12),
-            if (running) _screenLockInfoCard(),
-            if (_qrIp != null) _qrCard(_qrIp!),
+            if (running) _screenLockInfoCard(l10n),
+            if (_qrIp != null) _qrCard(_qrIp!, l10n),
             if (_error != null) ...[
               const SizedBox(height: 12),
-              Text('エラー: $_error', style: const TextStyle(color: Colors.red)),
+              Text(l10n.errorPrefix(_error!),
+                  style: const TextStyle(color: Colors.red)),
             ],
           ],
         ),

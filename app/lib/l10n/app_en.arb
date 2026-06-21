@@ -78,5 +78,130 @@
   "vpnAddressHide": "Hide VPN / other addresses",
   "copyDone": "Copied",
   "copy": "Copy",
-  "wifiLabel": "Wi-Fi"
+  "wifiLabel": "Wi-Fi",
+
+  "btnRetry": "Retry",
+  "btnConfirmDelete": "Confirm & Delete",
+  "btnSkip": "Skip",
+  "btnStartSend": "Start Sending",
+  "btnClearHistory": "Clear",
+  "btnDeleteAnyway": "Delete Anyway",
+
+  "pageHistory": "Send history",
+  "folderTooltip": "Source folders",
+  "deselectTooltip": "Deselect",
+
+  "menuHideSent": "Hide sent",
+  "menuShowSent": "Show sent",
+  "menuSendAllUnsent": "Send all unsent",
+  "menuFixDates": "Fix sent file dates",
+  "menuDeleteAllSent": "Delete all sent from this device",
+
+  "serverBarNoServer": "No destination — add one in Settings",
+  "serverBarWithServer": "Destination: {name} ({host}:{port})",
+  "freeSpaceSuffix": " · Free {free}",
+  "destNameFallback": "Destination",
+
+  "statusBarAllMedia": "All {total} files (unsent: {unsent})",
+  "statusBarUnsent": "Unsent: {count}",
+
+  "fabSend": "Send ({count})",
+
+  "permissionDeniedBody": "Media access not granted.\nPlease allow access in device settings.",
+
+  "noMediaInFolder": "No media in the selected folders",
+  "allMediaSent": "All caught up — no unsent files 🎉",
+
+  "labelDetail": "Details",
+
+  "selectedCount": "Selected: {count}",
+  "actionBarSelected": "{count} selected",
+  "actionSendSelected": "Send {count} file(s) to {dest}",
+  "actionSendAndDeleteSelected": "Send {count} file(s) and delete",
+  "actionSendAndDeleteSubtitle": "Sends to {dest}, then removes from this device after confirmation",
+  "actionDeleteSelected": "Delete {count} file(s) from this device",
+  "actionDeleteOnlyConfirmed": "Only deletes files confirmed received by {dest}",
+  "actionClearSelection": "Clear selection",
+
+  "checkingServer": "Checking server…",
+  "noFilesToSend": "Select files to send",
+  "noUnsentFiles": "No unsent files",
+  "noServerSet": "Add a destination server in Settings first",
+  "fileGetFailed": "Could not retrieve file",
+  "alreadyExistsOn": "Already on {name}",
+  "sendingFile": "Sending {index}/{total}: {title}",
+  "sendingFileMb": "Sending {index}/{total}: {title}  {sent}/{totalMb} MB{eta}",
+  "storageFullStop": "Stopped: {name} is out of storage",
+  "sendResult": "Done: {done} sent / {skipped} skipped / {failed} failed",
+  "storageWarning": "⚠️ Stopped: {name} is out of storage",
+  "scanningPhotos": "Registering on {name}… (for Google Photos)",
+  "scanFailed": "Google Photos registration failed — termux-api setup needed on receiver",
+  "scanSetupNeeded": "termux-api setup needed on receiver (files won't appear in Google Photos)",
+
+  "etaHoursMinutes": "{hours}h {minutes}m",
+  "etaMinutesSeconds": "{minutes}m {seconds}s",
+  "etaSeconds": "{seconds}s",
+  "etaSuffix": " · {eta} remaining",
+
+  "noSentFiles": "No sent files",
+  "fixDatesContent": "Fix creation dates for {count} file(s) on {name} (no retransfer). Continue?",
+  "fixingDates": "Fixing dates {index}/{total}",
+  "rescanningPhotos": "Re-registering on {name}… (for Google Photos)",
+  "fixDateResult": "Date fix: {fixed} succeeded / {miss} not found",
+
+  "noDeleteTargets": "Nothing to delete",
+  "deleteFromDeviceTitle": "Delete from this device",
+  "deleteFromDeviceContent": "Delete {count} file(s) from this device.\n\n· {name} receipt confirmed per file before deletion\n  (OK even if {name} freed space in Google Photos)\n· Copies on {name} and cloud backups remain\n· A system delete dialog will appear\n\n⚠️ Confirm {name}'s backup is complete before proceeding",
+  "verifyingReceipt": "Verifying on {name}: {index}/{total}: {title}",
+  "hashFailed": "Hash computation failed",
+  "notInLedger": "Not in {name}'s receipt ledger (send first)",
+  "nothingVerified": "No files confirmed received by {name} — delete cancelled",
+  "deletingPrompt": "Deleting… (approve the system dialog)",
+  "deleteFailed": "Delete failed: {error}",
+  "deleteLocalFailed": "System delete failed",
+  "deleteResultUnconfirmed": "Deleted: {deleted} / skipped (unconfirmed): {unconfirmed}",
+  "deleteResultFailed": "Deleted: {deleted} / failed: {failed}",
+
+  "sendAndDeleteTitle": "Send & Delete",
+  "sendAndDeleteContent": "Send {count} file(s) to {dest}, then delete successfully sent files from this device.\n\n⚠️ Cloud backup on {dest} may take time. If not in a hurry, use Send only and delete later after backup is confirmed.",
+
+  "sendAllUnsentContent": "Send {count} file(s). Continue?",
+
+  "startupSendDeleteTitle": "Send & delete on launch",
+  "startupSendTitle": "Send unsent on launch",
+  "startupSendDeleteContent": "Send {count} unsent file(s) to {name}, then delete from this device.\n\n⚠️ The receiver server on {name} must be running.\nOpen the Receive tab on the receiver and start the server.\n\nCloud backup may take time. If not urgent, tap Skip and use Send-only instead.",
+  "startupSendContent": "Send {count} unsent file(s) to {name}.\n\n⚠️ The receiver server on {name} must be running.\nOpen the Receive tab on the receiver and start the server.",
+
+  "connectionFailedTitle": "Connection failed",
+  "connectionFailedContent": "Cannot connect to {name} ({host}:{port}).\n\nCheck:\n· Is the receiver app's server started (Receive tab)?\n· Are both devices on the same Wi-Fi?\n  If your router broadcasts 2.4 GHz and 5 GHz separately,\n  connect both devices to the same band.\n· \"AP isolation\" (client isolation) on your router\n  prevents devices from communicating.",
+
+  "scanSetupTitle": "Show in Google Photos",
+
+  "reindexing": "Indexing Quick Share files…",
+  "reindexDone": "Index updated ({count} total)",
+  "cannotConnectServer": "Cannot connect to {name}",
+
+  "historyStats": "Last {total} — sent {sent} / skipped {skipped} / failed {failed}",
+  "historyEmpty": "No history yet",
+  "clearHistoryTitle": "Clear history",
+  "clearHistoryContent": "Clear all send history? (Does not affect which files are marked as sent.)",
+  "historySent": "Sent",
+  "historySkipped": "Skipped",
+  "historyFailed": "Failed",
+
+  "resultDetailTitle": "Results ({count})",
+  "resultDetailEmpty": "Nothing to show",
+  "statusSent": "Sent",
+  "statusSkipped": "Skipped (duplicate)",
+  "statusFailed": "Failed",
+  "statusDeleted": "Deleted",
+  "statusUnconfirmed": "Unconfirmed skip",
+  "deleteWithoutBackupTitle": "Delete without backup",
+  "deleteWithoutBackupContent": "{count} file(s) could not be confirmed as received.\n\nDeleting now means they will be permanently removed from this device without a backup.\n\nContinue?",
+
+  "receivedFilesTitle": "Received files ({count})",
+  "noPermission": "Media access not granted",
+  "noFilesToShow": "No files to display",
+
+  "errorPrefix": "Error: {error}"
 }
