@@ -8,6 +8,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'app_settings.dart';
 import 'media_store.dart';
+import 'receiver_service.dart';
 import 'relay_server.dart';
 import 'server_config.dart';
 
@@ -44,6 +45,7 @@ class _ReceiverPageState extends State<ReceiverPage> {
     _refresh?.cancel();
     _server?.stop();
     WakelockPlus.disable();
+    ReceiverService.stop();
     super.dispose();
   }
 
@@ -101,10 +103,14 @@ class _ReceiverPageState extends State<ReceiverPage> {
         }
         setState(() {});
       });
+      await ReceiverService.start();
       setState(() {
         _server = server;
         _busy = false;
       });
+      // 電池最適化の除外状態を確認し、未設定なら設定ガイドを表示する
+      final isIgnored = await ReceiverService.isBatteryOptimizationIgnored();
+      if (!isIgnored && mounted) _showBatteryOptimizationDialog();
     } catch (e) {
       setState(() {
         _error = '$e';
@@ -113,11 +119,39 @@ class _ReceiverPageState extends State<ReceiverPage> {
     }
   }
 
+  void _showBatteryOptimizationDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('バックグラウンド受信の安定化'),
+        content: const Text(
+          'アプリを小さくしたり画面を消すと、Androidが受信サーバーを止める場合があります。\n\n'
+          '「電池の最適化」でこのアプリを除外すると、バックグラウンドでも安定して受信できます。\n\n'
+          '次の画面で このアプリ →「最適化しない」を選んでください。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('後で設定する'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await ReceiverService.requestIgnoreBatteryOptimization();
+            },
+            child: const Text('設定を開く'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _stop() async {
     _refresh?.cancel();
     _refresh = null;
     await _server?.stop();
     await WakelockPlus.disable();
+    await ReceiverService.stop();
     _serverStartedAt = null;
     setState(() => _server = null);
   }

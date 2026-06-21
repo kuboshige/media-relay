@@ -259,6 +259,45 @@ class _HomePageState extends State<HomePage> {
     await _send(targets);
   }
 
+  /// 指定ファイルを送信し、成功分を Googleフォト警告ダイアログ経由で端末から削除する。
+  Future<void> _sendAndDelete(List<MediaItem> targets) async {
+    await _send(targets);
+    if (!mounted) return;
+
+    final sentItems = _lastOps
+        .where((o) => o.status == FileOpStatus.sent)
+        .map((o) => o.item)
+        .toList();
+    if (sentItems.isEmpty) return;
+
+    final proceed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('端末から削除しますか？'),
+        content: Text(
+          '${sentItems.length} 件の送信が完了しました。\n\n'
+          '⚠️ ${_destName}側でGoogleフォト等のクラウドバックアップが完了していない場合、'
+          'ファイルが失われる可能性があります。\n\n'
+          'バックアップ完了後に削除することをお勧めします。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('後で削除'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('今すぐ削除'),
+          ),
+        ],
+      ),
+    );
+    if (proceed == true) {
+      await _deleteFromDevice(sentItems, skipConfirmation: true);
+    }
+  }
+
   Future<void> _sendAllUnsent() async {
     final targets = _all.where((m) => !_sentIds.contains(m.id)).toList();
     if (targets.isEmpty) {
@@ -295,7 +334,7 @@ class _HomePageState extends State<HomePage> {
     final caps = await uploader.info();
     if (caps == null) {
       setState(() => _status = null);
-      _showSnack('${server.name}に接続できません（${server.host}:${server.port}）');
+      _showConnectionDialog(server);
       return;
     }
     // 受信側がMediaStore登録に非対応（アプリ内受信）なら /scan を呼ばない
@@ -357,18 +396,28 @@ class _HomePageState extends State<HomePage> {
           ops.add(FileOp(item, FileOpStatus.skipped, '${server.name}に既に存在'));
         } else {
           // アプリ内受信(app=true)は生アップロード＋MB進捗、旧nodeはmultipart。
+          DateTime? fileStart;
           final res = caps.app
               ? await uploader.uploadRaw(file, item.relativePath,
                   originalDateMs: item.createdAt.millisecondsSinceEpoch,
                   onProgress: (sent, total) {
+                  fileStart ??= DateTime.now();
                   // 約1秒間隔に間引く（毎MBの全画面再描画＝チラつき防止）
                   final now = DateTime.now().millisecondsSinceEpoch;
                   if (sent < total && now - _lastProgressTs < 1000) return;
                   _lastProgressTs = now;
                   final s = (sent / 1048576).toStringAsFixed(1);
                   final t = (total / 1048576).toStringAsFixed(1);
+                  String eta = '';
+                  final elapsedMs =
+                      DateTime.now().difference(fileStart!).inMilliseconds;
+                  if (elapsedMs > 800 && sent > 0 && total > sent) {
+                    final speed = sent * 1000.0 / elapsedMs;
+                    final etaSec = ((total - sent) / speed).round();
+                    if (etaSec > 0) eta = ' · あと${_fmtEta(etaSec)}';
+                  }
                   setState(() => _status =
-                      '送信中 ${i + 1}/${targets.length}: ${item.title}  $s/$t MB');
+                      '送信中 ${i + 1}/${targets.length}: ${item.title}  $s/$t MB$eta');
                 })
               : await uploader.upload(file, item.relativePath,
                   originalDateMs: item.createdAt.millisecondsSinceEpoch);
@@ -503,7 +552,7 @@ class _HomePageState extends State<HomePage> {
     final caps = await uploader.info();
     if (caps == null) {
       setState(() => _status = null);
-      _showSnack('${server.name}に接続できません（${server.host}:${server.port}）');
+      _showConnectionDialog(server);
       return;
     }
 
@@ -542,7 +591,9 @@ class _HomePageState extends State<HomePage> {
 
   /// 指定したファイルをこの端末（Motorola）から削除する。
   /// 安全のため、削除直前に1件ずつPixelへ受領確認し、確認できたものだけ消す。
-  Future<void> _deleteFromDevice(List<MediaItem> candidates) async {
+  /// [skipConfirmation] が true のときは冒頭の確認ダイアログを省略する（送信直後の削除用）。
+  Future<void> _deleteFromDevice(List<MediaItem> candidates,
+      {bool skipConfirmation = false}) async {
     final server = _currentServer;
     if (server == null) {
       _showSnack('先に設定で送信先サーバーを登録してください');
@@ -553,6 +604,9 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
+    if (skipConfirmation) {
+      // 送信直後の削除。確認ダイアログはすでに表示済みのためスキップ。
+    } else {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
@@ -577,12 +631,13 @@ class _HomePageState extends State<HomePage> {
       ),
     );
     if (ok != true) return;
+    }
 
     final uploader = Uploader(server);
     setState(() => _status = 'サーバー確認中…');
     if (!await uploader.ping()) {
       setState(() => _status = null);
-      _showSnack('${server.name}に接続できません（${server.host}:${server.port}）');
+      _showConnectionDialog(server);
       return;
     }
 
@@ -729,6 +784,42 @@ class _HomePageState extends State<HomePage> {
   void _showSnack(String msg) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  /// 接続失敗時に原因候補を列挙したダイアログを表示する。
+  void _showConnectionDialog(ServerEntry server) {
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('接続できませんでした'),
+        content: Text(
+          '${server.name}（${server.host}:${server.port}）に接続できません。\n\n'
+          '確認してください：\n'
+          '・受信側アプリの「受信」タブでサーバーを開始しているか\n'
+          '・2台が同じWi-Fiに繋がっているか\n'
+          '  ルーターが2.4GHzと5GHzを別々に出している場合は\n'
+          '  同じ帯域（どちらか一方）に揃えてください\n'
+          '・ルーターの「APアイソレーション（クライアント分離）」\n'
+          '  がオンになっていると端末同士が繋がりません',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _fmtEta(int secs) {
+    if (secs >= 3600) {
+      return '${secs ~/ 3600}時間${(secs % 3600) ~/ 60}分';
+    } else if (secs >= 60) {
+      return '${secs ~/ 60}分${secs % 60}秒';
+    }
+    return '$secs秒';
   }
 
   @override
@@ -950,6 +1041,12 @@ class _HomePageState extends State<HomePage> {
               onTap: () => Navigator.pop(context, 'send'),
             ),
             ListTile(
+              leading: const Icon(Icons.upload_file),
+              title: Text('選んだ $n 件を送信して削除'),
+              subtitle: Text('$_destNameに送信後、Googleフォト警告を確認してから端末から削除'),
+              onTap: () => Navigator.pop(context, 'send_and_delete'),
+            ),
+            ListTile(
               leading: const Icon(Icons.delete_forever, color: Colors.red),
               title: Text('選んだ $n 件をこの端末から削除',
                   style: const TextStyle(color: Colors.red)),
@@ -970,6 +1067,9 @@ class _HomePageState extends State<HomePage> {
           _all.where((m) => _selected.contains(m.id)).toList());
     } else if (action == 'send') {
       await _sendSelected();
+    } else if (action == 'send_and_delete') {
+      await _sendAndDelete(
+          _all.where((m) => _selected.contains(m.id)).toList());
     } else if (action == 'clear') {
       setState(() => _selected.clear());
     }

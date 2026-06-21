@@ -1,8 +1,11 @@
 package com.kuboshige.media_relay
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
+import android.provider.Settings
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -59,6 +62,41 @@ class MainActivity : FlutterActivity() {
                 "stop" -> {
                     stopService(Intent(this, UploadForegroundService::class.java))
                     result.success(null)
+                }
+                else -> result.notImplemented()
+            }
+        }
+
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "com.kuboshige.media_relay/receiver_service",
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "start" -> {
+                    startForegroundService(
+                        Intent(this, ReceiverForegroundService::class.java))
+                    result.success(null)
+                }
+                "stop" -> {
+                    stopService(Intent(this, ReceiverForegroundService::class.java))
+                    result.success(null)
+                }
+                "isBatteryOptimizationIgnored" -> {
+                    val pm = getSystemService(POWER_SERVICE) as PowerManager
+                    result.success(pm.isIgnoringBatteryOptimizations(packageName))
+                }
+                "requestIgnoreBatteryOptimization" -> {
+                    try {
+                        startActivity(
+                            Intent(
+                                Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                                Uri.parse("package:$packageName")
+                            )
+                        )
+                        result.success(null)
+                    } catch (e: Exception) {
+                        result.error("FAILED", e.message, null)
+                    }
                 }
                 else -> result.notImplemented()
             }

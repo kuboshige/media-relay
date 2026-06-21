@@ -12,9 +12,11 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <!-- QRコード読み取り（送信側でカメラスキャン） -->
     <uses-permission android:name="android.permission.CAMERA"/>
-    <!-- バックグラウンド送信を継続するためのフォアグラウンドサービス -->
+    <!-- バックグラウンド送信・受信を継続するためのフォアグラウンドサービス -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
+    <!-- 受信サーバーをバックグラウンドで安定動作させるための電池最適化除外リクエスト -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
 
     <application
         android:label="media_relay"
@@ -45,6 +47,10 @@
         </activity>
         <service
             android:name=".UploadForegroundService"
+            android:foregroundServiceType="dataSync"
+            android:exported="false"/>
+        <service
+            android:name=".ReceiverForegroundService"
             android:foregroundServiceType="dataSync"
             android:exported="false"/>
         <!-- Don't delete the meta-data below.
