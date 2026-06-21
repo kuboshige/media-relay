@@ -261,6 +261,33 @@ class _HomePageState extends State<HomePage> {
 
   /// 指定ファイルを送信し、成功分を Googleフォト警告ダイアログ経由で端末から削除する。
   Future<void> _sendAndDelete(List<MediaItem> targets) async {
+    // 操作前に事前警告を表示する。送信後では Google フォトのバックアップが完了しているかを
+    // ユーザーが確認できないため、「後で確認する」選択肢を先に提示する。
+    final proceed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('送信して削除'),
+        content: Text(
+          '${targets.length} 件を$_destNameに送信後、送信できたファイルをこの端末から削除します。\n\n'
+          '⚠️ ${_destName}側でGoogleフォト等のクラウドバックアップが完了するまでに'
+          '時間がかかる場合があります。削除を急がない場合は「送信のみ」を使い、'
+          'バックアップ完了後に別途削除することをお勧めします。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('キャンセル'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('送信して削除'),
+          ),
+        ],
+      ),
+    );
+    if (proceed != true || !mounted) return;
+
     await _send(targets);
     if (!mounted) return;
 
@@ -268,32 +295,7 @@ class _HomePageState extends State<HomePage> {
         .where((o) => o.status == FileOpStatus.sent)
         .map((o) => o.item)
         .toList();
-    if (sentItems.isEmpty) return;
-
-    final proceed = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('端末から削除しますか？'),
-        content: Text(
-          '${sentItems.length} 件の送信が完了しました。\n\n'
-          '⚠️ ${_destName}側でGoogleフォト等のクラウドバックアップが完了していない場合、'
-          'ファイルが失われる可能性があります。\n\n'
-          'バックアップ完了後に削除することをお勧めします。',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('後で削除'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('今すぐ削除'),
-          ),
-        ],
-      ),
-    );
-    if (proceed == true) {
+    if (sentItems.isNotEmpty) {
       await _deleteFromDevice(sentItems, skipConfirmation: true);
     }
   }
