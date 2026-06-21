@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'server_config.dart';
@@ -12,25 +11,18 @@ class QrScanPage extends StatefulWidget {
 }
 
 class _QrScanPageState extends State<QrScanPage> {
-  final MobileScannerController _controller = MobileScannerController();
-  StreamSubscription<BarcodeCapture>? _sub;
+  final MobileScannerController _controller = MobileScannerController(
+    autoStart: true,
+  );
   bool _handled = false;
 
   @override
-  void initState() {
-    super.initState();
-    _sub = _controller.barcodes.listen(_onCapture);
-    unawaited(_controller.start());
-  }
-
-  @override
   void dispose() {
-    _sub?.cancel();
     _controller.dispose();
     super.dispose();
   }
 
-  void _onCapture(BarcodeCapture capture) {
+  void _onDetect(BarcodeCapture capture) {
     if (_handled) return;
     for (final b in capture.barcodes) {
       final raw = b.rawValue;
@@ -52,7 +44,7 @@ class _QrScanPageState extends State<QrScanPage> {
         children: [
           MobileScanner(
             controller: _controller,
-            // カメラが起動できない理由を画面に出す（黒画面＋!の原因特定用）
+            onDetect: _onDetect,
             errorBuilder: (context, error, child) {
               return Center(
                 child: Padding(
@@ -73,7 +65,10 @@ class _QrScanPageState extends State<QrScanPage> {
                       ),
                       const SizedBox(height: 16),
                       FilledButton.icon(
-                        onPressed: () => unawaited(_controller.start()),
+                        onPressed: () async {
+                          await _controller.stop();
+                          await _controller.start();
+                        },
                         icon: const Icon(Icons.refresh),
                         label: const Text('再試行'),
                       ),
