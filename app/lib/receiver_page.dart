@@ -12,9 +12,6 @@ import 'relay_server.dart';
 import 'server_config.dart';
 
 /// 受信モード画面（この端末＝Pixelをサーバーにする）。
-///
-/// Step ①：Dart製の受信サーバーを起動し、IP:PORT を表示する。
-/// 送信側アプリの「接続テスト」やバッチ送信がここへ届くことを確認する。
 class ReceiverPage extends StatefulWidget {
   const ReceiverPage({super.key});
 
@@ -25,18 +22,15 @@ class ReceiverPage extends StatefulWidget {
 class _ReceiverPageState extends State<ReceiverPage> {
   RelayServer? _server;
   List<({String ip, String iface, bool wifi, bool virtual})> _ips = [];
-  bool _showAllIps = false; // VPN/仮想アドレスも表示するか
+  bool _showAllIps = false;
   int _port = AppSettings.defaultReceiverPort;
   String? _storageRoot;
   String? _error;
   bool _busy = false;
-  bool _migrating = false;
-  int _migrateTotal = 0;
-  int _migrateDone = 0;
-  int _migrateFailed = 0;
-  String? _lastMigrateError;
-  Timer? _refresh; // 受信カウンタを定期的に再描画する
+  Timer? _refresh;
   String _deviceName = '';
+  int _autoStopMinutes = AppSettings.defaultAutoStopMinutes;
+  DateTime? _serverStartedAt;
 
   @override
   void initState() {
@@ -53,8 +47,6 @@ class _ReceiverPageState extends State<ReceiverPage> {
   }
 
   Future<String> _resolveStorageRoot() async {
-    // MediaStore 登録に失敗した場合のフォールバック保存先（アプリ専用外部領域）。
-    // 通常は MediaStore API 経由で /sdcard/MediaRelay/ に保存される。
     final base = await getExternalStorageDirectory() ??
         await getApplicationDocumentsDirectory();
     return p.join(base.path, 'MediaRelay');
@@ -68,6 +60,7 @@ class _ReceiverPageState extends State<ReceiverPage> {
     try {
       _port = await AppSettings.receiverPort();
       _deviceName = await AppSettings.deviceName();
+      _autoStopMinutes = await AppSettings.receiverAutoStopMinutes();
       _storageRoot = await _resolveStorageRoot();
       Directory(_storageRoot!).createSync(recursive: true);
       final server = RelayServer(
@@ -84,9 +77,20 @@ class _ReceiverPageState extends State<ReceiverPage> {
       await server.start();
       _ips = await RelayServer.localIps();
       await WakelockPlus.enable();
+      _serverStartedAt = DateTime.now();
       _refresh?.cancel();
       _refresh = Timer.periodic(const Duration(seconds: 1), (_) {
-        if (mounted) setState(() {});
+        if (!mounted) return;
+        // 自動停止チェック（受信が無い状態が設定時間を超えたら停止・画面オフ）
+        if (_autoStopMinutes > 0 && _server != null) {
+          final last = _server!.lastReceivedAt ?? _serverStartedAt;
+          if (last != null &&
+              DateTime.now().difference(last).inMinutes >= _autoStopMinutes) {
+            _stop();
+            return;
+          }
+        }
+        setState(() {});
       });
       setState(() {
         _server = server;
@@ -100,90 +104,15 @@ class _ReceiverPageState extends State<ReceiverPage> {
     }
   }
 
-  /// プライベートストレージの既存受信ファイルを MediaStore（Googleフォト）に一括登録する。
-  /// 登録成功したファイルはプライベート領域から削除し、重複を防ぐ。
-  Future<void> _migrateToMediaStore() async {
-    if (_storageRoot == null || _migrating) return;
-
-    final dir = Directory(_storageRoot!);
-    if (!dir.existsSync()) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('保存フォルダが見つかりません')));
-      return;
-    }
-
-    final files = dir
-        .listSync(recursive: true, followLinks: false)
-        .whereType<File>()
-        .where((f) => !p.split(f.path).contains('.state'))
-        .toList();
-
-    if (files.isEmpty) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('登録するファイルがありません')));
-      return;
-    }
-
-    setState(() {
-      _migrating = true;
-      _migrateTotal = files.length;
-      _migrateDone = 0;
-      _migrateFailed = 0;
-      _lastMigrateError = null;
-    });
-
-    for (final file in files) {
-      final relPath = p.relative(file.path, from: _storageRoot!);
-      final dateMs = file.lastModifiedSync().millisecondsSinceEpoch;
-      final r = await MediaStore.insertFileResult(
-        sourcePath: file.path,
-        relativePath: relPath,
-        originalDateMs: dateMs,
-      );
-      if (r.uri != null) {
-        try {
-          file.deleteSync();
-        } catch (_) {}
-        setState(() => _migrateDone++);
-      } else {
-        _lastMigrateError ??= r.error;
-        setState(() => _migrateFailed++);
-      }
-    }
-
-    final ok = _migrateDone;
-    final fail = _migrateFailed;
-    setState(() => _migrating = false);
-
-    if (!mounted) return;
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Googleフォト登録完了'),
-        content: Text([
-          if (ok > 0) '$ok 件をGoogleフォトに登録しました',
-          if (fail > 0) '$fail 件失敗',
-          if (_lastMigrateError != null) '最初のエラー: $_lastMigrateError',
-        ].join('\n')),
-        actions: [
-          FilledButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('OK')),
-        ],
-      ),
-    );
-  }
-
   Future<void> _stop() async {
     _refresh?.cancel();
+    _refresh = null;
     await _server?.stop();
     await WakelockPlus.disable();
+    _serverStartedAt = null;
     setState(() => _server = null);
   }
 
-  // 既定では到達可能なLAN(非仮想)だけ表示。LANが無ければ全部出す（取りこぼし防止）。
   List<({String ip, String iface, bool wifi, bool virtual})> get _visibleIps {
     if (_showAllIps) return _ips;
     final real = _ips.where((e) => !e.virtual).toList();
@@ -193,12 +122,24 @@ class _ReceiverPageState extends State<ReceiverPage> {
   int get _hiddenVirtualCount {
     if (_showAllIps) return 0;
     final real = _ips.where((e) => !e.virtual).length;
-    if (real == 0) return 0; // 仮想しか無い時は全部表示中なので隠れていない
+    if (real == 0) return 0;
     return _ips.length - real;
   }
 
-  // QRに載せる代表IP（表示中の先頭＝Wi-Fi優先）。
   String? get _qrIp => _visibleIps.isEmpty ? null : _visibleIps.first.ip;
+
+  /// 自動停止までの残り時間（文字列）。設定オフまたはサーバー停止中は null。
+  String? get _autoStopCountdown {
+    if (_autoStopMinutes <= 0 || _server == null) return null;
+    final last = _server!.lastReceivedAt ?? _serverStartedAt;
+    if (last == null) return null;
+    final elapsed = DateTime.now().difference(last);
+    final remaining = Duration(minutes: _autoStopMinutes) - elapsed;
+    if (remaining.isNegative) return null;
+    final m = remaining.inMinutes;
+    final s = remaining.inSeconds % 60;
+    return m > 0 ? 'あと ${m}分 ${s}秒で自動停止・画面オフ' : 'あと ${s}秒で自動停止・画面オフ';
+  }
 
   Future<void> _editName() async {
     final ctrl = TextEditingController(text: _deviceName);
@@ -225,6 +166,11 @@ class _ReceiverPageState extends State<ReceiverPage> {
       await AppSettings.setDeviceName(name);
       setState(() => _deviceName = name);
     }
+  }
+
+  Future<void> _setAutoStop(int minutes) async {
+    await AppSettings.setReceiverAutoStopMinutes(minutes);
+    setState(() => _autoStopMinutes = minutes);
   }
 
   Widget _qrCard(String ip) {
@@ -305,9 +251,30 @@ class _ReceiverPageState extends State<ReceiverPage> {
     );
   }
 
+  Widget _autoStopTile() {
+    String label(int m) => m == 0 ? '停止しない' : '${m}分';
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: const Icon(Icons.timer_off_outlined),
+      title: const Text('無通信で自動停止'),
+      subtitle: Text(_autoStopMinutes == 0
+          ? 'オフ（手動で停止してください）'
+          : '最後の受信から $_autoStopMinutes 分後にサーバー停止・画面オフ'),
+      trailing: DropdownButton<int>(
+        value: _autoStopMinutes,
+        onChanged: (v) { if (v != null) _setAutoStop(v); },
+        items: [
+          for (final m in AppSettings.autoStopChoices)
+            DropdownMenuItem(value: m, child: Text(label(m))),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final running = _server?.running ?? false;
+    final countdown = _autoStopCountdown;
     return Scaffold(
       appBar: AppBar(title: const Text('受信モード（この端末をサーバーに）')),
       body: SingleChildScrollView(
@@ -384,50 +351,37 @@ class _ReceiverPageState extends State<ReceiverPage> {
                     ],
                   ),
                 ),
+              if (countdown != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.timer_outlined,
+                          size: 16, color: Colors.orange),
+                      const SizedBox(width: 6),
+                      Text(countdown,
+                          style: const TextStyle(color: Colors.orange)),
+                    ],
+                  ),
+                ),
             ],
             if (_error != null) ...[
               const SizedBox(height: 12),
               Text('エラー: $_error', style: const TextStyle(color: Colors.red)),
             ],
             const SizedBox(height: 16),
-            const Card(
-              color: Color(0xFFFFF3E0),
+            Card(
               child: Padding(
-                padding: EdgeInsets.all(12),
-                child: Text(
-                  '⚠️ 現在の制限：\n'
-                  '・画面を消す/アプリを閉じると受信が止まります（常駐は次ステップ）\n'
-                  '・受信ファイルは /sdcard/MediaRelay/ に保存され、Googleフォトに表示されます',
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: _autoStopTile(),
               ),
             ),
             const SizedBox(height: 12),
             FilledButton.icon(
-              onPressed: _busy
-                  ? null
-                  : (running ? _stop : _start),
+              onPressed: _busy ? null : (running ? _stop : _start),
               icon: Icon(running ? Icons.stop : Icons.play_arrow),
               label: Text(running ? '受信を停止' : '受信を開始'),
             ),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: (_busy || _migrating) ? null : _migrateToMediaStore,
-              icon: const Icon(Icons.photo_library_outlined),
-              label: const Text('既存ファイルをGoogleフォトに登録'),
-            ),
-            if (_migrating) ...[
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2)),
-                  const SizedBox(width: 10),
-                  Text('登録中… $_migrateDone / $_migrateTotal 件'),
-                ],
-              ),
-            ],
           ],
         ),
       ),

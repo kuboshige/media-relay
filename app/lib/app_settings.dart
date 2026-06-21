@@ -6,6 +6,7 @@ class AppSettings {
   static const _kLastSync = 'lastSyncEpochMs';
   static const _kReceiverPort = 'receiverPort';
   static const _kDeviceName = 'deviceName';
+  static const _kReceiverAutoStopMinutes = 'receiverAutoStopMinutes';
 
   /// この端末の表示名（受信モードのQRに載り、送信側に登録される名前）。
   static Future<String> deviceName() async {
@@ -45,6 +46,20 @@ class AppSettings {
   static Future<void> setReminderDays(int days) async {
     final p = await SharedPreferences.getInstance();
     await p.setInt(_kReminderDays, days);
+  }
+
+  /// 受信モードの自動停止時間（分）。0 は停止しない。既定30分。
+  static const int defaultAutoStopMinutes = 30;
+  static const List<int> autoStopChoices = [0, 15, 30, 60, 120];
+
+  static Future<int> receiverAutoStopMinutes() async {
+    final p = await SharedPreferences.getInstance();
+    return p.getInt(_kReceiverAutoStopMinutes) ?? defaultAutoStopMinutes;
+  }
+
+  static Future<void> setReceiverAutoStopMinutes(int minutes) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setInt(_kReceiverAutoStopMinutes, minutes);
   }
 
   /// 最後に送信した時刻（ms）。未記録なら null。

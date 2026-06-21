@@ -36,6 +36,7 @@ class RelayServer {
   int _received = 0;
   String? _recvName; // 受信中ファイル名（進捗表示用）
   int _recvBytes = 0; // 受信中ファイルのこれまでのバイト数
+  DateTime? _lastReceivedAt;
 
   RelayServer(
       {required this.storageRoot,
@@ -48,13 +49,21 @@ class RelayServer {
   int get receivedThisSession => _received;
   String? get receivingName => _recvName;
   int get receivingBytes => _recvBytes;
+  DateTime? get lastReceivedAt => _lastReceivedAt;
 
   File get _ledgerFile =>
       File(p.join(storageRoot, '.state', 'received-hashes.txt'));
 
   Future<void> start() async {
     if (_server != null) return;
-    Directory(p.join(storageRoot, '.state')).createSync(recursive: true);
+    final stateDir = Directory(p.join(storageRoot, '.state'));
+    stateDir.createSync(recursive: true);
+    // 前回の中断でできた孤立 .part ファイルを削除する。
+    for (final f in stateDir.listSync().whereType<File>()) {
+      if (p.basename(f.path).endsWith('.part')) {
+        try { f.deleteSync(); } catch (_) {}
+      }
+    }
     _loadLedger();
     final router = Router()
       ..get('/ping', _ping)
@@ -196,6 +205,7 @@ class RelayServer {
         } catch (_) {}
         _remember(hash);
         _received++;
+        _lastReceivedAt = DateTime.now();
         return _json(
             {'ok': true, 'relativePath': normalized, 'sha256': hash, 'size': size});
       }
@@ -216,6 +226,7 @@ class RelayServer {
 
     _remember(hash);
     _received++;
+    _lastReceivedAt = DateTime.now();
     return _json({
       'ok': true,
       'relativePath': normalized,
@@ -286,6 +297,7 @@ class RelayServer {
         } catch (_) {}
         _remember(hash);
         _received++;
+        _lastReceivedAt = DateTime.now();
         return _json(
             {'ok': true, 'relativePath': normalized, 'sha256': hash, 'size': size});
       }
@@ -306,6 +318,7 @@ class RelayServer {
 
     _remember(hash);
     _received++;
+    _lastReceivedAt = DateTime.now();
     return _json(
         {'ok': true, 'relativePath': normalized, 'sha256': hash, 'size': size});
   }

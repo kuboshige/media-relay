@@ -623,10 +623,6 @@ class _HomePageState extends State<HomePage> {
               } else if (v == 'delete_sent') {
                 _deleteFromDevice(
                     _all.where((m) => _sentIds.contains(m.id)).toList());
-              } else if (v == 'reindex_quickshare') {
-                _reindexQuickShare();
-              } else if (v == 'scan_setup') {
-                _showScanSetupDialog();
               } else if (v == 'receiver') {
                 Navigator.push(context,
                     MaterialPageRoute(builder: (_) => const ReceiverPage()));
@@ -648,15 +644,6 @@ class _HomePageState extends State<HomePage> {
               const PopupMenuItem(
                 value: 'delete_sent',
                 child: Text('送信済みを全件この端末から削除'),
-              ),
-              const PopupMenuDivider(),
-              const PopupMenuItem(
-                value: 'reindex_quickshare',
-                child: Text('クイックシェア受信分を検出（索引更新）'),
-              ),
-              const PopupMenuItem(
-                value: 'scan_setup',
-                child: Text('Googleフォト設定ガイド'),
               ),
               const PopupMenuDivider(),
               const PopupMenuItem(
