@@ -59,6 +59,11 @@ android {
             } else {
                 signingConfigs.getByName("debug")
             }
+            // ML Kit / CameraX はリフレクションを使うため、R8 で削除されないよう保護する
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
 }
