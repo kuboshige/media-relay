@@ -63,7 +63,7 @@ dependencies:
   # QRコード生成（受信側で接続情報を表示）
   qr_flutter: ^4.1.0
   # QRコード読み取り（送信側でカメラスキャン）
-  mobile_scanner: ^6.0.10
+  mobile_scanner: 5.2.4
 
 dev_dependencies:
   flutter_test:

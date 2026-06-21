@@ -7,6 +7,7 @@ import 'media_source.dart';
 import 'server_config.dart';
 import 'uploader.dart';
 import 'upload_service.dart';
+import 'result_detail_page.dart';
 import 'settings_page.dart';
 import 'folder_config.dart';
 import 'folder_select_page.dart';
@@ -111,6 +112,7 @@ class _HomePageState extends State<HomePage> {
   String? _status;
   int _lastProgressTs = 0; // 送信進捗の表示更新スロットル用（約1秒間隔）
   String? _lastResult; // 直近の送信結果（消えずに残す）
+  List<FileOp> _lastOps = []; // 直近の操作結果（ファイルごと）
   int? _freeBytes; // Pixelの空き容量
 
   @override
@@ -184,6 +186,20 @@ class _HomePageState extends State<HomePage> {
     if (mounted) setState(() {});
   }
 
+  bool get _hasOpDetail => _lastOps.any((o) => o.needsAttention);
+
+  Future<void> _showOpDetail() async {
+    final result = await Navigator.push<DetailPageResult>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ResultDetailPage(ops: _lastOps, serverName: _destName),
+      ),
+    );
+    if (result == null || !mounted) return;
+    if (result.toSend.isNotEmpty) await _send(result.toSend);
+    if (result.toDelete.isNotEmpty) await _deleteFromDevice(result.toDelete);
+  }
+
   Future<void> _openFolderSelect() async {
     final changed = await Navigator.push<bool>(context,
         MaterialPageRoute(builder: (_) => const FolderSelectPage()));
@@ -254,6 +270,7 @@ class _HomePageState extends State<HomePage> {
     int skipped = 0;
     int failed = 0;
     var stoppedForStorage = false;
+    final ops = <FileOp>[];
 
     // 送信中は画面を消さない＋バックグラウンドに移動しても送信継続
     await WakelockPlus.enable();
@@ -267,6 +284,7 @@ class _HomePageState extends State<HomePage> {
         final file = await item.originFile();
         if (file == null) {
           failed++;
+          ops.add(FileOp(item, FileOpStatus.failed, 'ファイルを取得できませんでした'));
           await SentStore.log(
             assetId: item.id,
             title: item.title,
@@ -301,6 +319,7 @@ class _HomePageState extends State<HomePage> {
           success = true;
           status = 'skipped';
           detail = '${server.name}に既に存在';
+          ops.add(FileOp(item, FileOpStatus.skipped, '${server.name}に既に存在'));
         } else {
           // アプリ内受信(app=true)は生アップロード＋MB進捗、旧nodeはmultipart。
           final res = caps.app
@@ -323,9 +342,11 @@ class _HomePageState extends State<HomePage> {
             done++;
             success = true;
             status = 'sent';
+            ops.add(FileOp(item, FileOpStatus.sent));
           } else if (res.insufficientStorage) {
             // 空き容量不足：このファイルは送れないのでバッチを中断
             stoppedForStorage = true;
+            ops.add(FileOp(item, FileOpStatus.failed, '${server.name}の空き容量不足で中断'));
             await SentStore.log(
               assetId: item.id,
               title: item.title,
@@ -338,6 +359,7 @@ class _HomePageState extends State<HomePage> {
           } else {
             failed++;
             detail = res.error;
+            ops.add(FileOp(item, FileOpStatus.failed, res.error));
           }
         }
 
@@ -403,6 +425,7 @@ class _HomePageState extends State<HomePage> {
       _status = null;
       _selected.clear();
       _lastResult = summary;
+      _lastOps = ops;
       _freeBytes = si?.freeBytes;
     });
     _showSnack(summary);
@@ -532,7 +555,9 @@ class _HomePageState extends State<HomePage> {
     // 自動でディスク走査するので、ここで重い /reindex を呼ぶ必要はない。
     final verified = <String>[]; // 削除してよい asset id
     var unconfirmed = 0;
+    final delOps = <String, FileOp>{}; // assetId → FileOp
     await WakelockPlus.enable();
+    await UploadService.start();
     try {
       for (var i = 0; i < candidates.length; i++) {
         final m = candidates[i];
@@ -542,6 +567,7 @@ class _HomePageState extends State<HomePage> {
         final file = await m.originFile();
         if (file == null) {
           unconfirmed++;
+          delOps[m.id] = FileOp(m, FileOpStatus.unconfirmed, 'ファイルを取得できませんでした');
           continue;
         }
         String? hash;
@@ -552,16 +578,28 @@ class _HomePageState extends State<HomePage> {
         }
         if (hash != null && await uploader.exists(hash)) {
           verified.add(m.id);
+          delOps[m.id] = FileOp(m, FileOpStatus.deleted); // 削除予定（後で確定）
         } else {
           unconfirmed++;
+          delOps[m.id] = FileOp(
+              m,
+              FileOpStatus.unconfirmed,
+              hash == null
+                  ? 'ハッシュ計算に失敗しました'
+                  : '${server.name}の受領記録にありません（まず送信してください）');
         }
       }
     } finally {
       await WakelockPlus.disable();
+      await UploadService.stop();
     }
 
     if (verified.isEmpty) {
-      setState(() => _status = null);
+      setState(() {
+        _status = null;
+        _lastResult = '削除: 0 件 / 未確認でスキップ $unconfirmed 件';
+        _lastOps = delOps.values.toList();
+      });
       _showSnack('${server.name}が受領済みのファイルがありませんでした（削除中止）');
       return;
     }
@@ -576,12 +614,21 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
+    // 実際に削除されなかったものを「失敗」に更新
+    for (final id in verified) {
+      if (!deleted.contains(id)) {
+        final existing = delOps[id]!;
+        delOps[id] = FileOp(existing.item, FileOpStatus.failed, '端末の削除処理が失敗しました');
+      }
+    }
+
     await _reloadMedia();
     final summary =
         '削除: ${deleted.length} 件 / 未確認でスキップ $unconfirmed 件';
     setState(() {
       _status = null;
       _lastResult = summary;
+      _lastOps = delOps.values.toList();
     });
     _showSnack(summary);
   }
@@ -746,21 +793,33 @@ class _HomePageState extends State<HomePage> {
             child: Text(_status!),
           ),
         if (_status == null && _lastResult != null)
-          Container(
-            width: double.infinity,
-            color: Colors.green.withValues(alpha: 0.08),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
-              children: [
-                const Icon(Icons.task_alt, size: 18, color: Colors.green),
-                const SizedBox(width: 8),
-                Expanded(child: Text(_lastResult!)),
-                IconButton(
-                  icon: const Icon(Icons.close, size: 18),
-                  visualDensity: VisualDensity.compact,
-                  onPressed: () => setState(() => _lastResult = null),
-                ),
-              ],
+          InkWell(
+            onTap: _hasOpDetail ? _showOpDetail : null,
+            child: Container(
+              width: double.infinity,
+              color: Colors.green.withValues(alpha: 0.08),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                children: [
+                  const Icon(Icons.task_alt, size: 18, color: Colors.green),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(_lastResult!)),
+                  if (_hasOpDetail) ...[
+                    const Text('詳細',
+                        style: TextStyle(color: Colors.teal, fontSize: 13)),
+                    const Icon(Icons.chevron_right,
+                        size: 18, color: Colors.teal),
+                  ],
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 18),
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => setState(() {
+                      _lastResult = null;
+                      _lastOps = [];
+                    }),
+                  ),
+                ],
+              ),
             ),
           ),
         Expanded(
