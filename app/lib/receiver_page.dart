@@ -34,6 +34,7 @@ class _ReceiverPageState extends State<ReceiverPage> {
   int _migrateTotal = 0;
   int _migrateDone = 0;
   int _migrateFailed = 0;
+  String? _lastMigrateError;
   Timer? _refresh; // 受信カウンタを定期的に再描画する
   String _deviceName = '';
 
@@ -130,22 +131,24 @@ class _ReceiverPageState extends State<ReceiverPage> {
       _migrateTotal = files.length;
       _migrateDone = 0;
       _migrateFailed = 0;
+      _lastMigrateError = null;
     });
 
     for (final file in files) {
       final relPath = p.relative(file.path, from: _storageRoot!);
       final dateMs = file.lastModifiedSync().millisecondsSinceEpoch;
-      final uri = await MediaStore.insertFile(
+      final r = await MediaStore.insertFileResult(
         sourcePath: file.path,
         relativePath: relPath,
         originalDateMs: dateMs,
       );
-      if (uri != null) {
+      if (r.uri != null) {
         try {
           file.deleteSync();
         } catch (_) {}
         setState(() => _migrateDone++);
       } else {
+        _lastMigrateError ??= r.error;
         setState(() => _migrateFailed++);
       }
     }
@@ -159,9 +162,11 @@ class _ReceiverPageState extends State<ReceiverPage> {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Googleフォト登録完了'),
-        content: Text(fail == 0
-            ? '$ok 件をGoogleフォトに登録しました'
-            : '$ok 件登録成功、$fail 件失敗'),
+        content: Text([
+          if (ok > 0) '$ok 件をGoogleフォトに登録しました',
+          if (fail > 0) '$fail 件失敗',
+          if (_lastMigrateError != null) '最初のエラー: $_lastMigrateError',
+        ].join('\n')),
         actions: [
           FilledButton(
               onPressed: () => Navigator.pop(context),

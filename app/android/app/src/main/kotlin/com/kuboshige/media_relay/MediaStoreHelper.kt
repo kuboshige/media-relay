@@ -5,23 +5,23 @@ import android.content.Context
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
+import android.util.Log
 import java.io.File
 
-/**
- * 受信ファイルを公開 MediaStore（/sdcard/MediaRelay/...）に登録する。
- * Android 10+（API 29+）必須。それ以外は null を返す。
- */
 object MediaStoreHelper {
 
+    private const val TAG = "MediaStoreHelper"
+
     /**
-     * 一時ファイルを MediaStore 経由で公開ストレージに移動・登録する。
+     * 一時ファイルを MediaStore 経由で公開ストレージに登録する。
+     * Android 10+（API 29+）必須。
      *
-     * @param sourcePath   書き込み済みの一時ファイルパス（呼び出し元が削除する）
-     * @param relativePath 元の相対パス（例: "DCIM/Camera/photo.jpg"）
-     *                     保存先は /sdcard/MediaRelay/<relativePath> になる
+     * @param sourcePath     書き込み済みの一時ファイルパス
+     * @param relativePath   元の相対パス（例: "DCIM/Camera/photo.jpg"）。ファイル名の取得に使う
      * @param originalDateMs 元の撮影日時（ミリ秒）。0 なら設定しない
-     * @param mimeType     null の場合は拡張子から推定する
-     * @return 成功時は content:// URI 文字列、失敗・非対応時は null
+     * @param mimeType       null の場合は拡張子から推定する
+     * @return 成功時は content:// URI 文字列
+     * @throws RuntimeException 失敗時（呼び出し元でキャッチしてエラー詳細を表示する）
      */
     fun insertFile(
         context: Context,
@@ -29,24 +29,30 @@ object MediaStoreHelper {
         relativePath: String,
         originalDateMs: Long,
         mimeType: String?,
-    ): String? {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null
+    ): String {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            throw RuntimeException("Android 10+ (API 29+) required")
+        }
 
         val src = File(sourcePath)
-        if (!src.exists()) return null
+        if (!src.exists()) {
+            throw RuntimeException("Source file not found: $sourcePath")
+        }
 
         val fileName = File(relativePath).name
-        val dirPart = File(relativePath).parent?.trimEnd('/') ?: ""
-        val relDir = if (dirPart.isEmpty()) "MediaRelay/" else "MediaRelay/$dirPart/"
-
         val mime = mimeType?.takeIf { it.isNotBlank() }
             ?: guessMime(fileName)
             ?: "application/octet-stream"
 
-        val collection: Uri = when {
-            mime.startsWith("image/") -> MediaStore.Images.Media.EXTERNAL_CONTENT_URI
-            mime.startsWith("video/") -> MediaStore.Video.Media.EXTERNAL_CONTENT_URI
-            else -> MediaStore.Files.getContentUri("external")
+        // Android 標準の media バケットに置くことで、非標準パスへの insert 拒否を回避する。
+        // Google フォトは DCIM/Pictures/Movies 配下を常にインデックスする。
+        val (collection, relDir) = when {
+            mime.startsWith("image/") ->
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI to "Pictures/MediaRelay/"
+            mime.startsWith("video/") ->
+                MediaStore.Video.Media.EXTERNAL_CONTENT_URI to "Movies/MediaRelay/"
+            else ->
+                MediaStore.Files.getContentUri("external") to "Download/MediaRelay/"
         }
 
         val values = ContentValues().apply {
@@ -61,37 +67,47 @@ object MediaStoreHelper {
             }
         }
 
-        val uri = try {
+        Log.d(TAG, "insert: $relDir$fileName mime=$mime src=${src.length()} bytes")
+
+        val uri: Uri = try {
             context.contentResolver.insert(collection, values)
+                ?: throw RuntimeException(
+                    "contentResolver.insert returned null " +
+                    "(collection=$collection relDir=$relDir fileName=$fileName)"
+                )
         } catch (e: Exception) {
-            return null
-        } ?: return null
+            Log.e(TAG, "insert failed: ${e.message}", e)
+            throw RuntimeException("insert failed: ${e.message}", e)
+        }
 
         return try {
-            context.contentResolver.openOutputStream(uri)?.use { out ->
-                src.inputStream().use { it.copyTo(out) }
-            }
+            val out = context.contentResolver.openOutputStream(uri)
+                ?: throw RuntimeException("openOutputStream returned null for $uri")
+            out.use { o -> src.inputStream().use { it.copyTo(o) } }
+
             val done = ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }
             context.contentResolver.update(uri, done, null, null)
+            Log.d(TAG, "success: $uri")
             uri.toString()
         } catch (e: Exception) {
+            Log.e(TAG, "write failed: ${e.message}", e)
             runCatching { context.contentResolver.delete(uri, null, null) }
-            null
+            throw RuntimeException("write failed: ${e.message}", e)
         }
     }
 
     private fun guessMime(name: String): String? = when (name.substringAfterLast('.').lowercase()) {
-        "jpg", "jpeg" -> "image/jpeg"
-        "png"         -> "image/png"
-        "gif"         -> "image/gif"
-        "webp"        -> "image/webp"
+        "jpg", "jpeg"  -> "image/jpeg"
+        "png"          -> "image/png"
+        "gif"          -> "image/gif"
+        "webp"         -> "image/webp"
         "heic", "heif" -> "image/heic"
-        "mp4"         -> "video/mp4"
-        "mov"         -> "video/quicktime"
-        "mkv"         -> "video/x-matroska"
-        "avi"         -> "video/x-msvideo"
-        "3gp"         -> "video/3gpp"
-        "webm"        -> "video/webm"
-        else          -> null
+        "mp4"          -> "video/mp4"
+        "mov"          -> "video/quicktime"
+        "mkv"          -> "video/x-matroska"
+        "avi"          -> "video/x-msvideo"
+        "3gp"          -> "video/3gpp"
+        "webm"         -> "video/webm"
+        else           -> null
     }
 }

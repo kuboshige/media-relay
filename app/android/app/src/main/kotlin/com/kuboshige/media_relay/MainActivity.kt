@@ -1,10 +1,14 @@
 package com.kuboshige.media_relay
 
+import android.os.Handler
+import android.os.Looper
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
+    private val mainHandler = Handler(Looper.getMainLooper())
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(
@@ -14,15 +18,28 @@ class MainActivity : FlutterActivity() {
             if (call.method == "insertFile") {
                 val sourcePath = call.argument<String>("sourcePath")
                 val relativePath = call.argument<String>("relativePath")
-                val originalDateMs = call.argument<Long>("originalDateMs") ?: 0L
+                // Dart int は値によって Java Integer / Long どちらで届くか不定のため Number で受ける
+                val originalDateMs =
+                    (call.argument<Any>("originalDateMs") as? Number)?.toLong() ?: 0L
                 val mimeType = call.argument<String>("mimeType")
+
                 if (sourcePath == null || relativePath == null) {
                     result.error("INVALID_ARGS", "sourcePath and relativePath required", null)
                     return@setMethodCallHandler
                 }
-                val uri = MediaStoreHelper.insertFile(
-                    context, sourcePath, relativePath, originalDateMs, mimeType)
-                result.success(uri)
+
+                // ContentResolver の I/O をバックグラウンドで実行（UI スレッドをブロックしない）
+                Thread {
+                    try {
+                        val uri = MediaStoreHelper.insertFile(
+                            applicationContext, sourcePath, relativePath, originalDateMs, mimeType)
+                        mainHandler.post { result.success(uri) }
+                    } catch (e: Exception) {
+                        mainHandler.post {
+                            result.error("MEDIA_STORE_ERROR", e.message ?: "unknown", null)
+                        }
+                    }
+                }.start()
             } else {
                 result.notImplemented()
             }
