@@ -35,7 +35,8 @@ class _ReceiverPageState extends State<ReceiverPage> {
   @override
   void initState() {
     super.initState();
-    _start();
+    // 設定値を先読みして表示する（サーバー起動は手動で行う）。
+    _loadSettings();
   }
 
   @override
@@ -44,6 +45,14 @@ class _ReceiverPageState extends State<ReceiverPage> {
     _server?.stop();
     WakelockPlus.disable();
     super.dispose();
+  }
+
+  Future<void> _loadSettings() async {
+    _port = await AppSettings.receiverPort();
+    _deviceName = await AppSettings.deviceName();
+    _autoStopMinutes = await AppSettings.receiverAutoStopMinutes();
+    _storageRoot = (await _resolveStorageRoot());
+    if (mounted) setState(() {});
   }
 
   Future<String> _resolveStorageRoot() async {
@@ -58,6 +67,7 @@ class _ReceiverPageState extends State<ReceiverPage> {
       _error = null;
     });
     try {
+      // 設定の最新値を反映（設定タブで変更されている可能性がある）。
       _port = await AppSettings.receiverPort();
       _deviceName = await AppSettings.deviceName();
       _autoStopMinutes = await AppSettings.receiverAutoStopMinutes();
@@ -81,7 +91,6 @@ class _ReceiverPageState extends State<ReceiverPage> {
       _refresh?.cancel();
       _refresh = Timer.periodic(const Duration(seconds: 1), (_) {
         if (!mounted) return;
-        // 自動停止チェック（受信が無い状態が設定時間を超えたら停止・画面オフ）
         if (_autoStopMinutes > 0 && _server != null) {
           final last = _server!.lastReceivedAt ?? _serverStartedAt;
           if (last != null &&
@@ -128,7 +137,6 @@ class _ReceiverPageState extends State<ReceiverPage> {
 
   String? get _qrIp => _visibleIps.isEmpty ? null : _visibleIps.first.ip;
 
-  /// 自動停止までの残り時間（文字列）。設定オフまたはサーバー停止中は null。
   String? get _autoStopCountdown {
     if (_autoStopMinutes <= 0 || _server == null) return null;
     final last = _server!.lastReceivedAt ?? _serverStartedAt;
@@ -141,38 +149,6 @@ class _ReceiverPageState extends State<ReceiverPage> {
     return m > 0 ? 'あと ${m}分 ${s}秒で自動停止・画面オフ' : 'あと ${s}秒で自動停止・画面オフ';
   }
 
-  Future<void> _editName() async {
-    final ctrl = TextEditingController(text: _deviceName);
-    final name = await showDialog<String>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('この端末の名前'),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          decoration: const InputDecoration(hintText: '例: 家のPixel'),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('キャンセル')),
-          FilledButton(
-              onPressed: () => Navigator.pop(context, ctrl.text.trim()),
-              child: const Text('保存')),
-        ],
-      ),
-    );
-    if (name != null && name.isNotEmpty) {
-      await AppSettings.setDeviceName(name);
-      setState(() => _deviceName = name);
-    }
-  }
-
-  Future<void> _setAutoStop(int minutes) async {
-    await AppSettings.setReceiverAutoStopMinutes(minutes);
-    setState(() => _autoStopMinutes = minutes);
-  }
-
   Widget _qrCard(String ip) {
     final data = ServerEntry.buildConnectUri(
         host: ip, port: _port, name: _deviceName);
@@ -181,22 +157,10 @@ class _ReceiverPageState extends State<ReceiverPage> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Flexible(
-                  child: Text('名前: $_deviceName',
-                      style: Theme.of(context).textTheme.titleMedium,
-                      overflow: TextOverflow.ellipsis),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.edit, size: 18),
-                  tooltip: '名前を変更',
-                  onPressed: _editName,
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
+            Text('名前: $_deviceName',
+                style: Theme.of(context).textTheme.titleMedium,
+                overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 8),
             Container(
               color: Colors.white,
               padding: const EdgeInsets.all(8),
@@ -208,7 +172,7 @@ class _ReceiverPageState extends State<ReceiverPage> {
             ),
             const SizedBox(height: 8),
             const Text(
-              '送信側のメディアリレーで「QRで追加」して読み取ってください',
+              '送信側の「設定」→「QRで追加」で読み取ってください',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 13),
             ),
@@ -251,32 +215,12 @@ class _ReceiverPageState extends State<ReceiverPage> {
     );
   }
 
-  Widget _autoStopTile() {
-    String label(int m) => m == 0 ? '停止しない' : '${m}分';
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: const Icon(Icons.timer_off_outlined),
-      title: const Text('無通信で自動停止'),
-      subtitle: Text(_autoStopMinutes == 0
-          ? 'オフ（手動で停止してください）'
-          : '最後の受信から $_autoStopMinutes 分後にサーバー停止・画面オフ'),
-      trailing: DropdownButton<int>(
-        value: _autoStopMinutes,
-        onChanged: (v) { if (v != null) _setAutoStop(v); },
-        items: [
-          for (final m in AppSettings.autoStopChoices)
-            DropdownMenuItem(value: m, child: Text(label(m))),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final running = _server?.running ?? false;
     final countdown = _autoStopCountdown;
     return Scaffold(
-      appBar: AppBar(title: const Text('受信モード（この端末をサーバーに）')),
+      appBar: AppBar(title: const Text('受信')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -295,42 +239,55 @@ class _ReceiverPageState extends State<ReceiverPage> {
                         const SizedBox(width: 8),
                         Text(running ? '受信中' : '停止中',
                             style: Theme.of(context).textTheme.titleMedium),
+                        const Spacer(),
+                        FilledButton.icon(
+                          onPressed: _busy ? null : (running ? _stop : _start),
+                          icon: Icon(running ? Icons.stop : Icons.play_arrow,
+                              size: 18),
+                          label: Text(running ? '停止' : '開始'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor:
+                                running ? Colors.red.shade400 : null,
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    const Text('送信側アプリにこのアドレスを登録:'),
-                    const SizedBox(height: 4),
-                    if (_ips.isEmpty)
-                      const Text('(IP取得中)',
-                          style: TextStyle(fontStyle: FontStyle.italic))
-                    else ...[
-                      for (final ip in _visibleIps) _ipRow(ip),
-                      if (_hiddenVirtualCount > 0)
-                        TextButton.icon(
-                          onPressed: () =>
-                              setState(() => _showAllIps = !_showAllIps),
-                          icon: Icon(_showAllIps
-                              ? Icons.visibility_off
-                              : Icons.visibility),
-                          label: Text(_showAllIps
-                              ? 'VPN等のアドレスを隠す'
-                              : 'VPN等のアドレスも表示 ($_hiddenVirtualCount)'),
-                        ),
+                    if (running) ...[
+                      const SizedBox(height: 12),
+                      const Text('このアドレスを送信側に登録:'),
+                      const SizedBox(height: 4),
+                      if (_ips.isEmpty)
+                        const Text('(IP取得中)',
+                            style: TextStyle(fontStyle: FontStyle.italic))
+                      else ...[
+                        for (final ip in _visibleIps) _ipRow(ip),
+                        if (_hiddenVirtualCount > 0)
+                          TextButton.icon(
+                            onPressed: () =>
+                                setState(() => _showAllIps = !_showAllIps),
+                            icon: Icon(_showAllIps
+                                ? Icons.visibility_off
+                                : Icons.visibility),
+                            label: Text(_showAllIps
+                                ? 'VPN等のアドレスを隠す'
+                                : 'VPN等のアドレスも表示 ($_hiddenVirtualCount)'),
+                          ),
+                      ],
+                    ] else ...[
+                      const SizedBox(height: 8),
+                      Text('「開始」で受信サーバーを起動します（ポート: $_port）',
+                          style: Theme.of(context).textTheme.bodySmall),
                     ],
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: 12),
-            if (_qrIp != null) _qrCard(_qrIp!),
-            const SizedBox(height: 12),
-            if (_storageRoot != null)
-              Text('保存先: $_storageRoot',
-                  style: Theme.of(context).textTheme.bodySmall),
             if (_server != null) ...[
               const SizedBox(height: 8),
               Text('このセッションの受信: ${_server!.receivedThisSession} 件 / '
-                  '台帳: ${_server!.knownHashes} ハッシュ'),
+                  '台帳: ${_server!.knownHashes} ハッシュ',
+                  style: Theme.of(context).textTheme.bodySmall),
               if (_server!.receivingName != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 6),
@@ -365,23 +322,12 @@ class _ReceiverPageState extends State<ReceiverPage> {
                   ),
                 ),
             ],
+            const SizedBox(height: 12),
+            if (_qrIp != null) _qrCard(_qrIp!),
             if (_error != null) ...[
               const SizedBox(height: 12),
               Text('エラー: $_error', style: const TextStyle(color: Colors.red)),
             ],
-            const SizedBox(height: 16),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: _autoStopTile(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            FilledButton.icon(
-              onPressed: _busy ? null : (running ? _stop : _start),
-              icon: Icon(running ? Icons.stop : Icons.play_arrow),
-              label: Text(running ? '受信を停止' : '受信を開始'),
-            ),
           ],
         ),
       ),

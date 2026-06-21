@@ -35,7 +35,7 @@ Motorola Edge 50 Pro（メイン端末・持ち歩き）
 
 ---
 
-## 【最重要】実装状況・引き継ぎメモ（2026-06-20時点）
+## 【最重要】実装状況・引き継ぎメモ（2026-06-21時点）
 
 新しいセッションはまずここを読むこと。`git log` と各ファイルで詳細を追える。
 
@@ -45,48 +45,59 @@ Motorola Edge 50 Pro（メイン端末・持ち歩き）
 3. Google フォトの「**空き容量を増やす**」でPixelディスクからファイルが消えると `/exists` が壊れる問題を、**永続受領台帳**（`received-hashes.txt`）で解決（ディスク存在に依存しない）。
 4. **方針転換**：受信側も Flutter アプリに統合し、**1つのアプリで送受信**、**Termux/Node を廃止**する方向で開発中（ユーザー要望）。あわせて **初回接続を QR＋mDNS で簡単に**する。
 
+### UIレイアウト（ボトムナビゲーション3タブ構成）
+
+```
+[📤 送信] [📥 受信] [⚙️ 設定]  ← 画面下部の NavigationBar
+```
+
+- **送信タブ** (`HomePage`)… メディアグリッド・選択・一括送信・履歴・フォルダ選択。送信先サーバーバー表示。`IndexedStack` で常に生存し、設定タブから戻った際にサーバーリストを自動更新。
+- **受信タブ** (`ReceiverPage`)… 受信サーバーの開始/停止・IP表示・QRコード表示・受信進捗・自動停止カウントダウン。**タブ切替後もサーバーは動き続ける**（IndexedStack により生存）。
+- **設定タブ** (`SettingsPage`)… QRで送信先追加・サーバーリスト・通知設定・受信設定（デバイス名・ポート・自動停止）。
+
 ### 現在のアプリ構成（`app/lib/`）
-- `main.dart` … 送信モードのメイン画面（メディア一覧・選択・送信・削除・履歴・⋮メニューから受信モード）。
-- `relay_server.dart` … **アプリ内受信サーバー（Dart, shelf）**。`/ping /exists /upload /upload-raw /reindex /setdate /scan` を実装。永続台帳・LAN IP列挙（`localIps`）。
-- `receiver_page.dart` … **受信モード画面**。IP一覧（Wi-Fi優先・VPN等は既定非表示）、**QR表示**、デバイス名編集、受信進捗、開始/停止、wakelock。
+- `main.dart` … `MainShell`（ボトムナビ3タブシェル）+ `HomePage`（送信タブ）。
+- `relay_server.dart` … **アプリ内受信サーバー（Dart, shelf）**。`/ping /exists /upload /upload-raw /reindex /setdate /scan` を実装。永続台帳・LAN IP列挙（`localIps`）・孤立 `.part` ファイル自動削除・`lastReceivedAt` トラッキング。
+- `receiver_page.dart` … **受信タブ**。IP一覧（Wi-Fi優先・VPN等は既定非表示）、**QR表示**、受信進捗・自動停止カウントダウン・開始/停止ボタン。起動時はサーバー停止状態（手動で開始）。
 - `qr_scan_page.dart` … 送信側の **QR読み取り**（mobile_scanner）。※下記の既知不具合あり。
 - `uploader.dart` … 送信クライアント。`upload`(multipart, 旧node用) と **`uploadRaw`**(生バイト, dart:io HttpClient, アプリ内受信用)、`ping/info/exists/reindex/scan/setdate`。`ServerInfo` に `app`（アプリ内受信か）/`mediaScan` フラグ。
-- `app_settings.dart` … reminderDays / lastSync / receiverPort / **deviceName**。
+- `app_settings.dart` … reminderDays / lastSync / receiverPort / deviceName / **receiverAutoStopMinutes**（0=オフ、既定30分）。
 - `notif_service.dart` … 未送信リマインダー（ローカル通知、デッドマンスイッチ式、日数は設定可）。
 - `server_config.dart` … サーバー登録（複数）＋ **QR用 `buildConnectUri`/`fromConnectUri`**（`mediarelay://connect?host&port&name`）。
 - `folder_select_page.dart` … 送信対象フォルダ選択（タップで中身プレビュー、トグルで対象ON/OFF）。
-- `settings_page.dart` … サーバー設定＋リマインダー設定＋**「QRで追加」**。
+- `settings_page.dart` … QRで送信先追加・サーバーリスト・リマインダー設定・**受信設定（デバイス名/ポート/自動停止）**。
 - `media_source.dart` / `sent_store.dart` / `history_page.dart` / `folder_config.dart` … 既存。
-- `server/`（Node.js）… 旧受信側。**まだ残っているが、in-app receiver へ移行中**。永続台帳の実装は `server/index.js` 参照。
+- `server/`（Node.js）… 旧受信側。**まだ残っているが廃止予定**。
 
 ### アプリ内受信（移行）の到達点
 - 送信側は `/ping` の `app:true` を見て、アプリ内受信には **`/upload-raw`（生バイト・dart:io HttpClient）** を使う（multipart はレスポンス待ちが返らず固まったため）。
 - 受信は**ストリームで一時ファイルに書きつつ逐次SHA256**（大動画でメモリ枯渇しない）→ rename。
-- `/scan`（MediaStore登録）はアプリ内受信では No-op。送信側は `mediaScan:false` を見て **scan呼び出しをスキップ**。
-- IP列挙は wlan 優先、`tun/ppp/rmnet` 等は `virtual=true` で既定非表示（AdGuard VPN の `172.18.x` 等を除外）。受信画面に「VPN等も表示」トグル。
+- **MediaStore登録済み**：受信ファイルは `Pictures/MediaRelay/`（画像）/ `Movies/MediaRelay/`（動画）に登録される。Googleフォトに自動表示。`mediaScan:true` を `/ping` で返す。
+- 自動停止：無通信N分（設定可）でサーバー停止＋WakelockPlus.disable()（画面オフ）。
+- 孤立 `.part` ファイル：サーバー起動時に前回中断分を自動削除。
+- IP列挙は wlan 優先、`tun/ppp/rmnet` 等は `virtual=true` で既定非表示。受信画面に「VPN等も表示」トグル。
 - システムメッセージとQRは **送信先の表示名（`server.name`/`deviceName`）** を使う（「Pixel」固定をやめた）。
 
 ### 既知の不具合・WIP（次セッションの最優先）
 1. **送信完了後にUIが「送信中」のまま固まる（最優先）**
    - 症状：大きいファイル送信で、**ファイルは実際に転送・記録される**（再起動すると送信済みになっている＝`markSent`実行済み）が、**送信完了後のUI更新が止まる**。進捗表示が末尾付近（例 70.0/70.4MB）で固まる。
    - 切り分け：`upload()` は成功して返っている（台帳・sent_store に載る）。`_send` の **ループ後（post-loop）の処理がハング**して最後の `setState(_status=null)` に到達していない疑い。`markSynced()`（通知再予約）が有力候補。
-   - 今セッションの暫定対応（このコミット、**要ビルド検証**）：`markSynced()` を `timeout(5s)` で囲い、`info()` も try で握りつぶして**必ず完了表示に進む**ように。進捗 `setState` を**1MB毎→約1秒間引き**に変更（全画面再描画のチラつき対策）。
+   - 暫定対応：`markSynced()` を `timeout(5s)` で囲い、`info()` も try で握りつぶして**必ず完了表示に進む**ように。進捗 `setState` を**約1秒間引き**に変更（チラつき対策）。
    - 根本原因（なぜ post-loop がハングするか）は未特定。次セッションで要調査。
-2. **QRカメラが起動しない**：`MobileScannerErrorCode.genericError` ＋ ネイティブ `getClass() on null`。mobile_scanner 5.2.3 でも 6.0.10 でも同一 → **その端末のカメラ/ML Kit層の問題**でDartからは直せない可能性大。**フォールバックは手動IP入力**（受信画面のIPテキストを見て設定の「＋」）。
-3. **受信ファイルがGoogleフォトに出ない**：アプリ内受信は今 `Android/data/<pkg>/files/MediaRelay`（アプリ専用領域）に保存。**MediaStore登録（=Step③）未実装**のためフォト非表示。**これが実用化の最大の穴**。
+2. **QRカメラが起動しない**：`MobileScannerErrorCode.genericError` ＋ ネイティブ `getClass() on null`。mobile_scanner 5.2.3 でも 6.0.10 でも同一 → **その端末のカメラ/ML Kit層の問題**でDartからは直せない可能性大。**フォールバックは手動IP入力**（設定タブ→「＋」）。
+3. ~~**受信ファイルがGoogleフォトに出ない**~~ → **解決済み**（MediaStore登録実装済み）。
 
 ### 今後の課題（優先順）
-1. **③ MediaStore登録**（受信ファイルをGoogleフォトに出す）＝最優先。ネイティブKotlin＋platform channel、または公開ストレージ＋MediaScanner。scoped storage対応が肝。`/scan` 相当を実装し、`/ping` の `mediaScan:true` を返すように。
-2. **② フォアグラウンドサービス常駐**（画面OFF/バックグラウンドでも受信継続）。`flutter_foreground_task` 等。今は受信画面を開いて画面ON中のみ稼働（wakelockで点きっぱ）。
-3. **送信完了ハングの根治**（暫定timeout対応の根本原因特定）。
-4. **QR読み取りの代替**（別パッケージ検討 or 標準カメラのディープリンク `mediarelay://`）。
-5. **mDNS自動発見**（QRと併用、`multicast_dns`/`nsd`）。
-6. Termux/Node の完全廃止（上記が揃ったら）。
+1. **送信完了ハングの根治**（`markSynced()`等の post-loop ハング原因特定）。
+2. **フォアグラウンドサービス常駐**（画面OFF/バックグラウンドでも受信継続）。`flutter_foreground_task` 等。今は受信タブ表示中のみ稼働（wakelockで点きっぱ→自動停止で消灯）。
+3. **QR読み取りの代替**（別パッケージ検討 or 標準カメラのディープリンク `mediarelay://`）。
+4. **mDNS自動発見**（QRと併用、`multicast_dns`/`nsd`）。
+5. Termux/Node の完全廃止（`server/` ディレクトリ削除）。
 
 ### ビルド・配布・運用
 - **GitHub Actions**：`.github/workflows/build-apk.yml` が release APK をビルド。バージョン名は `run_number` → `v1.0.<n>`。署名キーは Secret（更新インストール可）。
 - **配布**：両端末に **Obtainium** で配布（GitHub Releases）。
-- **開発ブランチ**：`claude/busy-franklin-phpf16`。`main` に勝手にpushしない。
+- **開発ブランチ**：`claude/media-relay-overview-6tigd0`。`main` に勝手にpushしない。
 - ローカルに Flutter SDK は無い → **CIビルドで検証**（push して Actions の成否を見る）。Node依存もCIに無いのでサーバ動作はユーザー実機で確認。
 - 旧Node受信を使う場合：Termux で `cd ~/media-relay/server && node index.js`（`pkill node` で停止）。アプリ内受信とポート8765が衝突するので**同時起動不可**。
 

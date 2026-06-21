@@ -17,6 +17,10 @@ class _SettingsPageState extends State<SettingsPage> {
   List<ServerEntry> _servers = [];
   int _selected = 0;
   int _reminderDays = AppSettings.defaultReminderDays;
+  // 受信設定
+  String _deviceName = '';
+  int _receiverPort = AppSettings.defaultReceiverPort;
+  int _autoStopMinutes = AppSettings.defaultAutoStopMinutes;
 
   @override
   void initState() {
@@ -28,6 +32,9 @@ class _SettingsPageState extends State<SettingsPage> {
     _servers = await ServerConfig.load();
     _selected = await ServerConfig.selectedIndex();
     _reminderDays = await AppSettings.reminderDays();
+    _deviceName = await AppSettings.deviceName();
+    _receiverPort = await AppSettings.receiverPort();
+    _autoStopMinutes = await AppSettings.receiverAutoStopMinutes();
     setState(() {});
   }
 
@@ -62,6 +69,70 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
     );
   }
+
+  Future<void> _editDeviceName() async {
+    final ctrl = TextEditingController(text: _deviceName);
+    final name = await showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('この端末の名前'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          decoration: const InputDecoration(hintText: '例: 家のPixel'),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('キャンセル')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, ctrl.text.trim()),
+              child: const Text('保存')),
+        ],
+      ),
+    );
+    if (name != null && name.isNotEmpty) {
+      await AppSettings.setDeviceName(name);
+      setState(() => _deviceName = name);
+    }
+  }
+
+  Future<void> _editReceiverPort() async {
+    final ctrl = TextEditingController(text: '$_receiverPort');
+    final portStr = await showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('受信ポート番号'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(hintText: '例: 8765'),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('キャンセル')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, ctrl.text.trim()),
+              child: const Text('保存')),
+        ],
+      ),
+    );
+    final port = int.tryParse(portStr ?? '');
+    if (port != null && port > 1024 && port < 65536) {
+      await AppSettings.setReceiverPort(port);
+      setState(() => _receiverPort = port);
+    }
+  }
+
+  Widget _sectionHeader(String title) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Text(title, style: Theme.of(context).textTheme.titleSmall),
+        ),
+      );
 
   Future<void> _persist() async {
     await ServerConfig.save(_servers);
@@ -134,16 +205,48 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
       body: Column(
         children: [
+          _sectionHeader('通知'),
           _reminderTile(),
           const Divider(height: 1),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text('送信先サーバー',
-                  style: Theme.of(context).textTheme.titleSmall),
+          _sectionHeader('受信設定'),
+          ListTile(
+            leading: const Icon(Icons.label_outline),
+            title: const Text('この端末の名前'),
+            subtitle: Text(_deviceName.isEmpty ? '未設定' : _deviceName),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: _editDeviceName,
+          ),
+          ListTile(
+            leading: const Icon(Icons.settings_ethernet),
+            title: const Text('受信ポート'),
+            subtitle: Text('$_receiverPort'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: _editReceiverPort,
+          ),
+          ListTile(
+            leading: const Icon(Icons.timer_off_outlined),
+            title: const Text('無通信で自動停止'),
+            subtitle: Text(_autoStopMinutes == 0
+                ? 'オフ'
+                : '最後の受信から $_autoStopMinutes 分後'),
+            trailing: DropdownButton<int>(
+              value: _autoStopMinutes,
+              onChanged: (v) async {
+                if (v == null) return;
+                await AppSettings.setReceiverAutoStopMinutes(v);
+                setState(() => _autoStopMinutes = v);
+              },
+              items: [
+                for (final m in AppSettings.autoStopChoices)
+                  DropdownMenuItem(
+                    value: m,
+                    child: Text(m == 0 ? '停止しない' : '${m}分'),
+                  ),
+              ],
             ),
           ),
+          const Divider(height: 1),
+          _sectionHeader('送信先サーバー'),
           Expanded(
             child: _servers.isEmpty
                 ? const Center(

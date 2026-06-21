@@ -31,7 +31,62 @@ class MediaRelayApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
         useMaterial3: true,
       ),
-      home: const HomePage(),
+      home: const MainShell(),
+    );
+  }
+}
+
+/// ボトムナビゲーションのシェル。3つのタブ（送信/受信/設定）を切り替える。
+/// IndexedStack で全タブを生かし続けることで、受信サーバーはタブ切替後も動き続ける。
+class MainShell extends StatefulWidget {
+  const MainShell({super.key});
+
+  @override
+  State<MainShell> createState() => _MainShellState();
+}
+
+class _MainShellState extends State<MainShell> {
+  int _currentIndex = 0;
+  final _homeKey = GlobalKey<_HomePageState>();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: IndexedStack(
+        index: _currentIndex,
+        children: [
+          HomePage(key: _homeKey),
+          const ReceiverPage(),
+          const SettingsPage(),
+        ],
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _currentIndex,
+        onDestinationSelected: (i) {
+          if (i == 0 && _currentIndex != 0) {
+            // 設定タブから戻った時にサーバーリストを更新する。
+            _homeKey.currentState?._refreshServers();
+          }
+          setState(() => _currentIndex = i);
+        },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.upload_outlined),
+            selectedIcon: Icon(Icons.upload),
+            label: '送信',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.download_outlined),
+            selectedIcon: Icon(Icons.download),
+            label: '受信',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings),
+            label: '設定',
+          ),
+        ],
+      ),
     );
   }
 }
@@ -121,12 +176,11 @@ class _HomePageState extends State<HomePage> {
     return _servers[i];
   }
 
-  Future<void> _openSettings() async {
-    await Navigator.push(context,
-        MaterialPageRoute(builder: (_) => const SettingsPage()));
+  /// 設定タブから送信タブに戻ったときに呼ばれる（MainShell から呼び出し）。
+  Future<void> _refreshServers() async {
     _servers = await ServerConfig.load();
     _selectedServer = await ServerConfig.selectedIndex();
-    setState(() {});
+    if (mounted) setState(() {});
   }
 
   Future<void> _openFolderSelect() async {
@@ -594,7 +648,7 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('media-relay'),
+        title: const Text('送信'),
         actions: [
           IconButton(
             icon: const Icon(Icons.history),
@@ -607,11 +661,6 @@ class _HomePageState extends State<HomePage> {
             tooltip: '送信対象フォルダ',
             onPressed: _openFolderSelect,
           ),
-          IconButton(
-            icon: const Icon(Icons.settings),
-            tooltip: '送信先サーバー設定',
-            onPressed: _openSettings,
-          ),
           PopupMenuButton<String>(
             onSelected: (v) {
               if (v == 'toggle_sent') {
@@ -623,9 +672,6 @@ class _HomePageState extends State<HomePage> {
               } else if (v == 'delete_sent') {
                 _deleteFromDevice(
                     _all.where((m) => _sentIds.contains(m.id)).toList());
-              } else if (v == 'receiver') {
-                Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => const ReceiverPage()));
               }
             },
             itemBuilder: (_) => [
@@ -644,11 +690,6 @@ class _HomePageState extends State<HomePage> {
               const PopupMenuItem(
                 value: 'delete_sent',
                 child: Text('送信済みを全件この端末から削除'),
-              ),
-              const PopupMenuDivider(),
-              const PopupMenuItem(
-                value: 'receiver',
-                child: Text('受信モード（この端末をサーバーに）'),
               ),
             ],
           ),

@@ -1,0 +1,59 @@
+# Flutter / Dart build artifacts
+app/build/
+app/.dart_tool/
+app/.flutter-plugins
+app/.flutter-plugins-dependencies
+app/.packages
+**/*.g.dart
+**/*.freezed.dart
+
+# Android build artifacts
+app/android/build/
+app/android/app/build/
+app/android/.gradle/
+app/android/local.properties
+**/*.aar
+**/*.apk
+**/*.aab
+**/*.keystore
+**/*.jks
+
+# Gradle caches & wrappers
+app/android/gradle/
+app/android/gradlew
+app/android/gradlew.bat
+**/gradle-wrapper.jar
+
+# iOS (not used, but just in case)
+app/ios/
+app/macos/
+app/linux/
+app/windows/
+app/web/
+
+# Node.js (server side)
+server/node_modules/
+
+# Lock files (keep pubspec.lock for reproducibility, ignore npm lock)
+server/package-lock.json
+
+# Logs
+**/*.log
+**/logs/
+
+# Test / coverage output
+app/coverage/
+**/lcov.info
+
+# IDE
+.idea/
+.vscode/
+**/.DS_Store
+
+# Temp / state files
+**/.state/
+**/*.part
+
+# Large generated / binary assets
+**/*.png.meta
+**/*.jpg.meta
