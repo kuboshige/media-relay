@@ -76,7 +76,11 @@ class _ReceiverPageState extends State<ReceiverPage> {
       _autoStopMinutes = await AppSettings.receiverAutoStopMinutes();
       _storageRoot = await _resolveStorageRoot();
       Directory(_storageRoot!).createSync(recursive: true);
-      final token = _generateToken();
+      var token = await AppSettings.receiverToken();
+      if (token == null) {
+        token = _generateToken();
+        await AppSettings.setReceiverToken(token);
+      }
       final server = RelayServer(
         storageRoot: _storageRoot!,
         port: _port,

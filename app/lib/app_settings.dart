@@ -8,6 +8,7 @@ class AppSettings {
   static const _kDeviceName = 'deviceName';
   static const _kReceiverAutoStopMinutes = 'receiverAutoStopMinutes';
   static const _kStartupAction = 'startupAction';
+  static const _kReceiverToken = 'receiverToken';
 
   static const String startupActionNone = 'none';
   static const String startupActionSend = 'send';
@@ -76,6 +77,17 @@ class AppSettings {
   static Future<void> setStartupAction(String action) async {
     final p = await SharedPreferences.getInstance();
     await p.setString(_kStartupAction, action);
+  }
+
+  /// 受信サーバーの認証トークン。起動ごとに再生成しないよう永続化する。
+  static Future<String?> receiverToken() async {
+    final p = await SharedPreferences.getInstance();
+    return p.getString(_kReceiverToken);
+  }
+
+  static Future<void> setReceiverToken(String token) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setString(_kReceiverToken, token);
   }
 
   /// 最後に送信した時刻（ms）。未記録なら null。
