@@ -1,7 +1,8 @@
 # MediaRelay 機能検証台帳
 
-最終更新: 2026-06-22 (QAループ静的解析 第2パス)  
-ビルド: v1.1.0-50 (run #50, commit dbe2de9) / qa-loop ブランチに修正コミット中
+最終更新: 2026-06-22 (QAループ静的解析 全19Dartファイル・4Kotlinファイル完了)  
+ビルド: v1.1.0-50 (run #50, commit dbe2de9) / qa-loop ブランチに修正コミット中  
+次フェーズ: 実機テスト（主経路 送信→受信→MediaStore→Googleフォト）
 
 ## 凡例
 
@@ -130,6 +131,28 @@
 | SEND-28 | SQLiteエクスポート/インポート（機種変更対応） |
 | SEND-29 | WiFi接続時自動送信 |
 | RECV-16 | Google Photos Library API連携 |
+
+### 静的解析メモ（実機テスト不要の確認済み事項）
+- APP-03: IndexedStack 3タブ → 実装正常
+- APP-04/05: 起動時自動送信 / 送信して削除 → _runStartupAction() 実装正常
+- SEND-01〜06: グリッド・フィルタ・フォルダ・プレビュー・選択 → 実装正常
+- SEND-07: サーバーバー（IP/ポート/空き容量） → _serverBar() 実装正常
+- SEND-08: 空き容量不足中断 → res.insufficientStorage フラグ正常
+- SEND-12: 送信して削除 → skipConfirmation フロー正常
+- SEND-13: /exists の前に /reindex を呼ばない（Quick Share新着が重複スキップされない）← 既知制限、保留
+- SEND-20/21/25/26: 日付修正・全件削除・履歴 → 実装正常
+- SEND-23/24: ForegroundService + WakeLock で背景継続 → 実装正常
+- RECV-01〜15: 受信サーバー全機能 → 実装正常（RECV-04・10・12のみ合格実績あり）
+- RECV-13: .state/received-hashes.txt 永続台帳 → 起動時 _loadLedger() 正常
+- RECV-14: サーバー起動時 .part ファイル削除 → start()冒頭で削除正常
+- CONF-01〜13: 設定全機能 → 実装正常（CONF-01のみ合格実績あり）
+- MediaStoreHelper.kt: IS_PENDING パターン・Pictures/Movies分岐・DATE_TAKEN設定 → 正常
+
+### 残課題（保留・実機テスト待ち）
+- SEND-13: Quick Share ファイルの自動スキップ（/reindex 手動実行が必要）
+- SEND-15: 大ファイル送信後UIフリーズの根本原因
+- APP-02残留: notif_service.dartのconst通知チャンネル名が日本語固定（Android API制約）
+- APP-02残留: _showScanSetupDialog()本文が日本語固定（legacy Termux経路のみ）
 
 ### 直近の修正コミット
 | コミット | ストーリー | 内容 |
