@@ -20,9 +20,8 @@ import 'history_page.dart';
 import 'notif_service.dart';
 import 'receiver_page.dart';
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  await NotifService.init();
   runApp(const MediaRelayApp());
 }
 
@@ -149,8 +148,10 @@ class _HomePageState extends State<HomePage> {
     await _reloadMedia();
     setState(() => _loading = false);
 
-    await NotifService.requestPermission();
-    await NotifService.reschedule();
+    try {
+      await NotifService.requestPermission();
+      await NotifService.reschedule();
+    } catch (_) {}
     _refreshFreeSpace();
 
     final startupAction = await AppSettings.startupAction();
