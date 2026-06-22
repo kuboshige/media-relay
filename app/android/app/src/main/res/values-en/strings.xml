@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="upload_channel_name">File Transfer</string>
+    <string name="upload_channel_desc">Shows progress while sending files</string>
+    <string name="upload_notif_text">Sending files in background…</string>
+    <string name="receiver_channel_name">Receiver Server</string>
+    <string name="receiver_channel_desc">Media Relay receiving in background</string>
+    <string name="receiver_notif_text">Waiting for files (background)</string>
+</resources>

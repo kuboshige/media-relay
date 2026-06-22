@@ -842,5 +842,11 @@
   },
 
   "folderNoMedia": "メディアがありません",
-  "@folderNoMedia": { "description": "Empty state inside folder preview" }
+  "@folderNoMedia": { "description": "Empty state inside folder preview" },
+
+  "vpnIfaceLabel": "{iface}（VPN等）",
+  "@vpnIfaceLabel": {
+    "description": "VPN / virtual interface address label in receiver page",
+    "placeholders": { "iface": { "type": "String" } }
+  }
 }

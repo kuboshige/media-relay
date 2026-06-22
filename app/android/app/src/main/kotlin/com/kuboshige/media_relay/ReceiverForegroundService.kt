@@ -20,9 +20,9 @@ class ReceiverForegroundService : Service() {
             nm.createNotificationChannel(
                 NotificationChannel(
                     CHANNEL_ID,
-                    "受信サーバー",
+                    getString(R.string.receiver_channel_name),
                     NotificationManager.IMPORTANCE_LOW
-                ).apply { description = "Media Relay 受信待機中" }
+                ).apply { description = getString(R.string.receiver_channel_desc) }
             )
         }
     }
@@ -30,7 +30,7 @@ class ReceiverForegroundService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val notification = Notification.Builder(this, CHANNEL_ID)
             .setContentTitle("Media Relay")
-            .setContentText("受信待機中（バックグラウンド）")
+            .setContentText(getString(R.string.receiver_notif_text))
             .setSmallIcon(android.R.drawable.stat_sys_download)
             .setOngoing(true)
             .build()

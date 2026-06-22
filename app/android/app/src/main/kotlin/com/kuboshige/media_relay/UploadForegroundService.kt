@@ -17,9 +17,9 @@ class UploadForegroundService : Service() {
         super.onCreate()
         val channel = NotificationChannel(
             CHANNEL_ID,
-            "ファイル送信",
+            getString(R.string.upload_channel_name),
             NotificationManager.IMPORTANCE_LOW
-        ).apply { description = "送信中の進捗を表示します" }
+        ).apply { description = getString(R.string.upload_channel_desc) }
         getSystemService(NotificationManager::class.java)
             .createNotificationChannel(channel)
     }
@@ -27,7 +27,7 @@ class UploadForegroundService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("MediaRelay")
-            .setContentText("送信中…（バックグラウンド）")
+            .setContentText(getString(R.string.upload_notif_text))
             .setSmallIcon(android.R.drawable.stat_sys_upload)
             .setOngoing(true)
             .build()

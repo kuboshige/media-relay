@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="upload_channel_name">ファイル送信</string>
+    <string name="upload_channel_desc">送信中の進捗を表示します</string>
+    <string name="upload_notif_text">送信中…（バックグラウンド）</string>
+    <string name="receiver_channel_name">受信サーバー</string>
+    <string name="receiver_channel_desc">Media Relay 受信待機中</string>
+    <string name="receiver_notif_text">受信待機中（バックグラウンド）</string>
+</resources>

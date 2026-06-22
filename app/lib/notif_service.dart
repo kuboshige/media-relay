@@ -1,3 +1,4 @@
+import 'dart:ui' show PlatformDispatcher;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
@@ -65,10 +66,14 @@ class NotifService {
       fireAt = now.add(const Duration(minutes: 5));
     }
 
+    final isJa = PlatformDispatcher.instance.locale.languageCode == 'ja';
+    final body = isJa
+        ? '$days日間 送信していません。未送信の写真を送信しましょう'
+        : 'You haven\'t sent in $days day(s). Send your unsent photos now.';
     await _plugin.zonedSchedule(
       _reminderId,
       'media-relay',
-      '$days日間 送信していません。未送信の写真を送信しましょう',
+      body,
       fireAt,
       _details,
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,

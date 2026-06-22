@@ -273,7 +273,7 @@ class _ReceiverPageState extends State<ReceiverPage> {
     final addr = '${e.ip}:$_port';
     final label = e.wifi
         ? l10n.wifiLabel
-        : (e.virtual ? '${e.iface}(VPN等)' : e.iface);
+        : (e.virtual ? l10n.vpnIfaceLabel(e.iface) : e.iface);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
