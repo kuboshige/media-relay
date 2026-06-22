@@ -145,10 +145,11 @@ class RelayServer {
     if (unauth != null) return unauth;
     final root = Directory(storageRoot);
     if (root.existsSync()) {
-      for (final e in root.listSync(recursive: true, followLinks: false)) {
+      await for (final e in root.list(recursive: true, followLinks: false)) {
         if (e is File && !p.split(e.path).contains('.state')) {
           try {
-            _remember(sha256.convert(e.readAsBytesSync()).toString());
+            final digest = await sha256.bind(e.openRead()).first;
+            _remember(digest.toString());
           } catch (_) {}
         }
       }
