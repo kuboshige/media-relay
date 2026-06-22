@@ -174,7 +174,7 @@
   "startupSendContent": "Send {count} unsent file(s) to {name}.\n\n⚠️ The receiver server on {name} must be running.\nOpen the Receive tab on the receiver and start the server.",
 
   "connectionFailedTitle": "Connection failed",
-  "connectionFailedContent": "Cannot connect to {name} ({host}:{port}).\n\nCheck:\n· Is the receiver app's server started (Receive tab)?\n· Are both devices on the same Wi-Fi?\n  If your router broadcasts 2.4 GHz and 5 GHz separately,\n  connect both devices to the same band.\n· \"AP isolation\" (client isolation) on your router\n  prevents devices from communicating.",
+  "connectionFailedContent": "Cannot connect to {name} ({host}:{port}).\n\nCheck:\n· Is the receiver app's server started (Receive tab)?\n· Are both devices on the same Wi-Fi?\n  If your router broadcasts 2.4 GHz and 5 GHz separately,\n  connect both devices to the same band.\n· \"AP isolation\" (client isolation) on your router\n  prevents devices from communicating.\n\nTip: use the ping test button (wifi_tethering icon) in Settings\nto verify the connection.",
 
   "scanSetupTitle": "Show in Google Photos",
 

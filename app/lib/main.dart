@@ -269,7 +269,7 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _sendSelected() async {
     final l10n = AppLocalizations.of(context)!;
-    final targets = _visible.where((m) => _selected.contains(m.id)).toList();
+    final targets = _visible.where((m) => _selected.contains(m.id)).toList().reversed.toList();
     if (targets.isEmpty) {
       _showSnack(l10n.noFilesToSend);
       return;
@@ -314,7 +314,7 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _sendAllUnsent() async {
     final l10n = AppLocalizations.of(context)!;
-    final targets = _all.where((m) => !_sentIds.contains(m.id)).toList();
+    final targets = _all.where((m) => !_sentIds.contains(m.id)).toList().reversed.toList();
     if (targets.isEmpty) {
       _showSnack(l10n.noUnsentFiles);
       return;
@@ -794,7 +794,7 @@ class _HomePageState extends State<HomePage> {
       ),
     );
     if (ok != true || !mounted) return;
-    final targets = _all.where((m) => !_sentIds.contains(m.id)).toList();
+    final targets = _all.where((m) => !_sentIds.contains(m.id)).toList().reversed.toList();
     await _send(targets);
     if (!mounted || !isDelete) return;
     final sentItems = _lastOps
@@ -904,7 +904,7 @@ class _HomePageState extends State<HomePage> {
       body: _buildBody(l10n),
       floatingActionButton: _selected.isNotEmpty
           ? FloatingActionButton.extended(
-              onPressed: _status == null ? _sendSelected : null,
+              onPressed: _status == null ? _showSelectionActions : null,
               icon: const Icon(Icons.send),
               label: Text(l10n.fabSend(_selected.length)),
             )
@@ -1105,7 +1105,7 @@ class _HomePageState extends State<HomePage> {
       await _sendSelected();
     } else if (action == 'send_and_delete') {
       await _sendAndDelete(
-          _all.where((m) => _selected.contains(m.id)).toList());
+          _all.where((m) => _selected.contains(m.id)).toList().reversed.toList());
     } else if (action == 'clear') {
       setState(() => _selected.clear());
     }
@@ -1130,7 +1130,6 @@ class _HomePageState extends State<HomePage> {
       },
       onLongPress: () {
         setState(() => _selected.add(item.id));
-        _showSelectionActions();
       },
       child: Stack(
         fit: StackFit.expand,

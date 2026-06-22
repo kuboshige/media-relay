@@ -703,7 +703,7 @@
   "connectionFailedTitle": "接続できませんでした",
   "@connectionFailedTitle": { "description": "Connection failed dialog title" },
 
-  "connectionFailedContent": "{name}（{host}:{port}）に接続できません。\n\n確認してください：\n・受信側アプリの「受信」タブでサーバーを開始しているか\n・2台が同じWi-Fiに繋がっているか\n  ルーターが2.4GHzと5GHzを別々に出している場合は\n  同じ帯域（どちらか一方）に揃えてください\n・ルーターの「APアイソレーション（クライアント分離）」\n  がオンになっていると端末同士が繋がりません",
+  "connectionFailedContent": "{name}（{host}:{port}）に接続できません。\n\n確認してください：\n・受信側アプリの「受信」タブでサーバーを開始しているか\n・2台が同じWi-Fiに繋がっているか\n  ルーターが2.4GHzと5GHzを別々に出している場合は\n  同じ帯域（どちらか一方）に揃えてください\n・ルーターの「APアイソレーション（クライアント分離）」\n  がオンになっていると端末同士が繋がりません\n\n設定の (wifi_tethering) ピングテストボタンで\n通信確認もお試しください",
   "@connectionFailedContent": {
     "description": "Connection failed dialog content",
     "placeholders": {
