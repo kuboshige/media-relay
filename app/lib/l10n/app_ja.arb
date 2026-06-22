@@ -373,7 +373,13 @@
 
   "fabSend": "送信 ({count})",
   "@fabSend": {
-    "description": "FAB label",
+    "description": "FAB label when files are selected",
+    "placeholders": { "count": { "type": "int" } }
+  },
+
+  "fabSendUnsent": "未送信を全件送信 ({count})",
+  "@fabSendUnsent": {
+    "description": "FAB label when nothing is selected — sends all unsent",
     "placeholders": { "count": { "type": "int" } }
   },
 

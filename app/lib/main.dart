@@ -902,13 +902,19 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
       body: _buildBody(l10n),
-      floatingActionButton: _visible.isEmpty
-          ? null
-          : FloatingActionButton.extended(
+      floatingActionButton: _selected.isNotEmpty
+          ? FloatingActionButton.extended(
               onPressed: _status == null ? _sendSelected : null,
               icon: const Icon(Icons.send),
               label: Text(l10n.fabSend(_selected.length)),
-            ),
+            )
+          : _unsentCount > 0
+              ? FloatingActionButton.extended(
+                  onPressed: _status == null ? _sendAllUnsent : null,
+                  icon: const Icon(Icons.send),
+                  label: Text(l10n.fabSendUnsent(_unsentCount)),
+                )
+              : null,
     );
   }
 

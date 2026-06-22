@@ -106,6 +106,7 @@
   "statusBarUnsent": "Unsent: {count}",
 
   "fabSend": "Send ({count})",
+  "fabSendUnsent": "Send all unsent ({count})",
 
   "permissionDeniedBody": "Media access not granted.\nPlease allow access in device settings.",
 
