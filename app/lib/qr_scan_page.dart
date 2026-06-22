@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:media_relay/gen_l10n/app_localizations.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'server_config.dart';
 
@@ -48,8 +49,9 @@ class _QrScanPageState extends State<QrScanPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
-      appBar: AppBar(title: const Text('QRで追加')),
+      appBar: AppBar(title: Text(l10n.addServerQr)),
       body: Stack(
         children: [
           MobileScanner(
@@ -65,7 +67,7 @@ class _QrScanPageState extends State<QrScanPage> {
                       const Icon(Icons.error_outline,
                           color: Colors.red, size: 48),
                       const SizedBox(height: 12),
-                      Text('カメラを起動できません',
+                      Text(l10n.qrCameraErrorTitle,
                           style: Theme.of(context).textTheme.titleMedium),
                       const SizedBox(height: 8),
                       Text(
@@ -80,12 +82,12 @@ class _QrScanPageState extends State<QrScanPage> {
                           await _controller.start();
                         },
                         icon: const Icon(Icons.refresh),
-                        label: const Text('再試行'),
+                        label: Text(l10n.btnRetry),
                       ),
                       const SizedBox(height: 8),
                       TextButton(
                         onPressed: () => Navigator.pop(context),
-                        child: const Text('戻る（設定の「＋」でIPを手入力できます）'),
+                        child: Text(l10n.qrCameraBackHint),
                       ),
                     ],
                   ),
@@ -93,14 +95,14 @@ class _QrScanPageState extends State<QrScanPage> {
               );
             },
           ),
-          const Align(
+          Align(
             alignment: Alignment.bottomCenter,
             child: Padding(
-              padding: EdgeInsets.all(24),
+              padding: const EdgeInsets.all(24),
               child: Text(
-                '受信側アプリのQRコードを枠に映してください',
+                l10n.qrScanInstruction,
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 15,
                   backgroundColor: Colors.black54,

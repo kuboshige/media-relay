@@ -809,5 +809,14 @@
   "@errorPrefix": {
     "description": "Error prefix",
     "placeholders": { "error": { "type": "String" } }
-  }
+  },
+
+  "qrScanInstruction": "受信側アプリのQRコードを枠に映してください",
+  "@qrScanInstruction": { "description": "QR scan instruction overlay text" },
+
+  "qrCameraErrorTitle": "カメラを起動できません",
+  "@qrCameraErrorTitle": { "description": "QR camera error title" },
+
+  "qrCameraBackHint": "戻る（設定の「＋」でIPを手入力できます）",
+  "@qrCameraBackHint": { "description": "QR page back button hint" }
 }

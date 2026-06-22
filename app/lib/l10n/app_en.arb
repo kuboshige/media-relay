@@ -204,5 +204,9 @@
   "noPermission": "Media access not granted",
   "noFilesToShow": "No files to display",
 
-  "errorPrefix": "Error: {error}"
+  "errorPrefix": "Error: {error}",
+
+  "qrScanInstruction": "Point the receiver app's QR code at the camera",
+  "qrCameraErrorTitle": "Cannot start camera",
+  "qrCameraBackHint": "Go back (you can enter the IP manually with + in Settings)"
 }
