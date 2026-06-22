@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:media_relay/gen_l10n/app_localizations.dart';
 import 'package:photo_manager/photo_manager.dart';
 
 class ReceivedFilesPage extends StatefulWidget {
