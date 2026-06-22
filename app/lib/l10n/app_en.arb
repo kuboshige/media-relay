@@ -208,5 +208,12 @@
 
   "qrScanInstruction": "Point the receiver app's QR code at the camera",
   "qrCameraErrorTitle": "Cannot start camera",
-  "qrCameraBackHint": "Go back (you can enter the IP manually with + in Settings)"
+  "qrCameraBackHint": "Go back (you can enter the IP manually with + in Settings)",
+
+  "btnSelectAll": "Select all",
+  "btnDeselectAll": "Deselect all",
+  "folderNotFound": "No folders found",
+  "folderItemCountHint": "{count} items · tap to preview",
+  "folderPreviewHint": "{count} items (showing first 200 as preview)",
+  "folderNoMedia": "No media here"
 }

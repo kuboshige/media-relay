@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:media_relay/gen_l10n/app_localizations.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'media_source.dart';
 import 'folder_config.dart';
@@ -51,25 +52,28 @@ class _FolderSelectPageState extends State<FolderSelectPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('送信対象フォルダ'),
+        title: Text(l10n.folderTooltip),
         actions: [
           TextButton(
             onPressed: () =>
                 setState(() => _selected = _albums.map((a) => a.id).toSet()),
-            child: const Text('全選択', style: TextStyle(color: Colors.white)),
+            child: Text(l10n.btnSelectAll,
+                style: const TextStyle(color: Colors.white)),
           ),
           TextButton(
             onPressed: () => setState(() => _selected = {}),
-            child: const Text('全解除', style: TextStyle(color: Colors.white)),
+            child: Text(l10n.btnDeselectAll,
+                style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _albums.isEmpty
-              ? const Center(child: Text('フォルダが見つかりません'))
+              ? Center(child: Text(l10n.folderNotFound))
               : ListView.builder(
                   itemCount: _albums.length,
                   itemBuilder: (context, i) {
@@ -77,7 +81,7 @@ class _FolderSelectPageState extends State<FolderSelectPage> {
                     return ListTile(
                       leading: _AlbumThumb(a.path),
                       title: Text(a.name),
-                      subtitle: Text('${a.count} 件 ・ タップで中身を見る'),
+                      subtitle: Text(l10n.folderItemCountHint(a.count)),
                       // フォルダ名/サムネのタップは「中身プレビュー」を開く。
                       // 送信対象のON/OFFは右のスイッチだけで切り替える。
                       onTap: () => Navigator.push(
@@ -95,7 +99,7 @@ class _FolderSelectPageState extends State<FolderSelectPage> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _save,
         icon: const Icon(Icons.check),
-        label: const Text('保存'),
+        label: Text(l10n.btnSave),
       ),
     );
   }
@@ -133,6 +137,7 @@ class _FolderPreviewPageState extends State<FolderPreviewPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.album.name),
@@ -142,7 +147,7 @@ class _FolderPreviewPageState extends State<FolderPreviewPage> {
             alignment: Alignment.centerLeft,
             child: Padding(
               padding: const EdgeInsets.only(left: 16, bottom: 8),
-              child: Text('${widget.album.count} 件（プレビューは先頭200件）',
+              child: Text(l10n.folderPreviewHint(widget.album.count),
                   style: const TextStyle(color: Colors.white70, fontSize: 12)),
             ),
           ),
@@ -151,7 +156,7 @@ class _FolderPreviewPageState extends State<FolderPreviewPage> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _assets.isEmpty
-              ? const Center(child: Text('メディアがありません'))
+              ? Center(child: Text(l10n.folderNoMedia))
               : GridView.builder(
                   padding: const EdgeInsets.all(2),
                   gridDelegate:

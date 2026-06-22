@@ -818,5 +818,29 @@
   "@qrCameraErrorTitle": { "description": "QR camera error title" },
 
   "qrCameraBackHint": "戻る（設定の「＋」でIPを手入力できます）",
-  "@qrCameraBackHint": { "description": "QR page back button hint" }
+  "@qrCameraBackHint": { "description": "QR page back button hint" },
+
+  "btnSelectAll": "全選択",
+  "@btnSelectAll": { "description": "Select all button" },
+
+  "btnDeselectAll": "全解除",
+  "@btnDeselectAll": { "description": "Deselect all button" },
+
+  "folderNotFound": "フォルダが見つかりません",
+  "@folderNotFound": { "description": "Empty state: no albums found" },
+
+  "folderItemCountHint": "{count} 件 ・ タップで中身を見る",
+  "@folderItemCountHint": {
+    "description": "Album list item subtitle",
+    "placeholders": { "count": { "type": "int" } }
+  },
+
+  "folderPreviewHint": "{count} 件（プレビューは先頭200件）",
+  "@folderPreviewHint": {
+    "description": "Folder preview page subtitle showing item count",
+    "placeholders": { "count": { "type": "int" } }
+  },
+
+  "folderNoMedia": "メディアがありません",
+  "@folderNoMedia": { "description": "Empty state inside folder preview" }
 }
