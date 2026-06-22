@@ -44,6 +44,9 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Generate l10n
+        run: flutter gen-l10n
+
       - name: Generate app icon
         run: flutter pub run flutter_launcher_icons
 
