@@ -49,23 +49,25 @@ class Uploader {
       ? {'Authorization': 'Bearer ${server.token}'}
       : {};
 
-  /// サーバー死活確認
-  Future<bool> ping() async {
+  /// サーバー死活確認（トークン検証を含む）。HTTP ステータスを返す。null は通信エラー。
+  Future<int?> pingStatus() async {
     try {
       final res = await http
-          .get(Uri.parse('${server.baseUrl}/ping'))
+          .get(Uri.parse('${server.baseUrl}/ping'), headers: _authHeaders)
           .timeout(const Duration(seconds: 5));
-      return res.statusCode == 200;
+      return res.statusCode;
     } catch (_) {
-      return false;
+      return null;
     }
   }
+
+  Future<bool> ping() async => await pingStatus() == 200;
 
   /// サーバーの状態（空き容量など）を取得する。失敗時は null。
   Future<ServerInfo?> info() async {
     try {
       final res = await http
-          .get(Uri.parse('${server.baseUrl}/ping'))
+          .get(Uri.parse('${server.baseUrl}/ping'), headers: _authHeaders)
           .timeout(const Duration(seconds: 5));
       if (res.statusCode != 200) return null;
       final body = jsonDecode(res.body) as Map<String, dynamic>;

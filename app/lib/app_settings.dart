@@ -1,4 +1,5 @@
 import 'package:shared_preferences/shared_preferences.dart';
+import 'media_store.dart';
 
 /// アプリ全体の軽量設定（サーバー以外）。SharedPreferences に保存する。
 class AppSettings {
@@ -15,9 +16,12 @@ class AppSettings {
   static const String startupActionSendAndDelete = 'sendAndDelete';
 
   /// この端末の表示名（受信モードのQRに載り、送信側に登録される名前）。
+  /// 未設定のときは Android の Build.MODEL（例: "Pixel 5"）を返す。
   static Future<String> deviceName() async {
     final p = await SharedPreferences.getInstance();
-    return p.getString(_kDeviceName) ?? 'メディアリレー受信機';
+    final saved = p.getString(_kDeviceName);
+    if (saved != null && saved.isNotEmpty) return saved;
+    return await MediaStore.deviceModel() ?? 'メディアリレー受信機';
   }
 
   static Future<void> setDeviceName(String name) async {

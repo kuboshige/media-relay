@@ -22,6 +22,15 @@ class MediaStore {
     return r.uri;
   }
 
+  /// Android の Build.MODEL（端末名）を返す。取得失敗時は null。
+  static Future<String?> deviceModel() async {
+    try {
+      return await _channel.invokeMethod<String>('getDeviceModel');
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// [insertFile] と同じだが、失敗時にエラー文字列も返す。
   /// 移行ダイアログなど、原因を表示したい箇所で使う。
   static Future<({String? uri, String? error})> insertFileResult({

@@ -120,15 +120,17 @@ class RelayServer {
     return _json({'error': 'unauthorized'}, status: 401);
   }
 
-  Response _ping(Request req) => _json({
-        'ok': true,
-        'storageRoot': storageRoot,
-        'freeBytes': null,
-        // mediaScan: true = アップロードごとに MediaStore 登録済み（/scan は即 ok）。
-        // mediaScan: false = MediaStore 未対応（送信側は /scan をスキップする）。
-        'mediaScan': _mediaScan != null,
-        'app': true,
-      });
+  Response _ping(Request req) {
+    final unauth = _requireAuth(req);
+    if (unauth != null) return unauth;
+    return _json({
+      'ok': true,
+      'storageRoot': storageRoot,
+      'freeBytes': null,
+      'mediaScan': _mediaScan != null,
+      'app': true,
+    });
+  }
 
   Response _exists(Request req) {
     final unauth = _requireAuth(req);
@@ -190,6 +192,7 @@ class RelayServer {
             hashSink.add(chunk);
             _recvBytes += chunk.length;
             size += chunk.length;
+            _lastReceivedAt = DateTime.now();
             return chunk;
           }));
         } finally {
@@ -308,6 +311,7 @@ class RelayServer {
         hashSink.add(chunk);
         size += chunk.length;
         _recvBytes = size;
+        _lastReceivedAt = DateTime.now();
         return chunk;
       }));
     } finally {

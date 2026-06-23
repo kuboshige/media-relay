@@ -238,12 +238,15 @@ class _SettingsPageState extends State<SettingsPage> {
     final l10n = AppLocalizations.of(context)!;
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(l10n.connectTestPending)));
-    final ok = await Uploader(s).ping();
+    final status = await Uploader(s).pingStatus();
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(ok
-            ? l10n.connectTestOk(s.name)
-            : l10n.connectTestFail('${s.host}:${s.port}'))));
+    final msg = status == 200
+        ? l10n.connectTestOk(s.name)
+        : status == 401
+            ? l10n.connectTestAuth('${s.host}:${s.port}')
+            : l10n.connectTestFail('${s.host}:${s.port}');
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(msg)));
   }
 
   Future<void> _launchUrl(String url, AppLocalizations l10n) async {
@@ -275,12 +278,30 @@ class _SettingsPageState extends State<SettingsPage> {
               onPressed: () => _edit(),
             ),
           ]),
-          if (_servers.isEmpty)
+          if (_servers.isEmpty) ...[
             ListTile(
               leading: const Icon(Icons.info_outline),
               title: Text(l10n.serverNotRegistered),
-              subtitle: Text(l10n.serverNotRegisteredHint),
-            )
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: Wrap(
+                spacing: 8,
+                children: [
+                  FilledButton.icon(
+                    icon: const Icon(Icons.qr_code_scanner, size: 18),
+                    label: Text(l10n.addServerQr),
+                    onPressed: _addFromQr,
+                  ),
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.add, size: 18),
+                    label: Text(l10n.addServerManual),
+                    onPressed: () => _edit(),
+                  ),
+                ],
+              ),
+            ),
+          ]
           else
             for (int i = 0; i < _servers.length; i++)
               RadioListTile<int>(

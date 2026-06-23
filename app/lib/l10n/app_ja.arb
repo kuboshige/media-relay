@@ -181,7 +181,7 @@
   "serverPortLabel": "ポート",
   "@serverPortLabel": { "description": "Server port field label" },
 
-  "serverTokenLabel": "トークン（任意）",
+  "serverTokenLabel": "トークン",
   "@serverTokenLabel": { "description": "Server token field label" },
 
   "serverTokenHint": "QRスキャンで自動設定されます",
@@ -199,6 +199,12 @@
   "connectTestFail": "接続できません: {hostPort}",
   "@connectTestFail": {
     "description": "Snackbar when connection test fails",
+    "placeholders": { "hostPort": { "type": "String" } }
+  },
+
+  "connectTestAuth": "認証エラー: {hostPort} に繋がりましたがトークンが一致しません",
+  "@connectTestAuth": {
+    "description": "Snackbar when ping succeeds but auth fails (401)",
     "placeholders": { "hostPort": { "type": "String" } }
   },
 
@@ -241,7 +247,7 @@
     }
   },
 
-  "receiverQrHint": "送信側の「設定」→「QRで追加」で読み取ってください",
+  "receiverQrHint": "送信側の「設定」→「QRで追加」ボタンでスキャンしてください",
   "@receiverQrHint": { "description": "Hint below QR code" },
 
   "batteryDialogTitle": "バックグラウンド受信の安定化",

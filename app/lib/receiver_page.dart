@@ -150,6 +150,33 @@ class _ReceiverPageState extends State<ReceiverPage> {
     );
   }
 
+  Future<void> _editDeviceName(AppLocalizations l10n) async {
+    final ctrl = TextEditingController(text: _deviceName);
+    final name = await showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(l10n.deviceNameLabel),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          decoration: InputDecoration(hintText: l10n.deviceNameHint),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(l10n.btnCancel)),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, ctrl.text.trim()),
+              child: Text(l10n.btnSave)),
+        ],
+      ),
+    );
+    if (name != null && name.isNotEmpty) {
+      await AppSettings.setDeviceName(name);
+      if (mounted) setState(() => _deviceName = name);
+    }
+  }
+
   Future<void> _stop() async {
     _refresh?.cancel();
     _refresh = null;
@@ -229,9 +256,20 @@ class _ReceiverPageState extends State<ReceiverPage> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            Text('${l10n.deviceNameLabel}: $_deviceName',
-                style: Theme.of(context).textTheme.titleMedium,
-                overflow: TextOverflow.ellipsis),
+            Row(
+              children: [
+                Expanded(
+                  child: Text('${l10n.deviceNameLabel}: $_deviceName',
+                      style: Theme.of(context).textTheme.titleMedium,
+                      overflow: TextOverflow.ellipsis),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.edit, size: 18),
+                  tooltip: l10n.deviceNameLabel,
+                  onPressed: () => _editDeviceName(l10n),
+                ),
+              ],
+            ),
             const SizedBox(height: 8),
             Container(
               color: Colors.white,
