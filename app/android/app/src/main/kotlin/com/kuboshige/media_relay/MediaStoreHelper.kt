@@ -87,6 +87,18 @@ object MediaStoreHelper {
 
             val done = ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }
             context.contentResolver.update(uri, done, null, null)
+
+            // IS_PENDING=0 によって Android が DATE_MODIFIED を「今」にリセットすることがある。
+            // その後のメディアスキャナーが mtime をフォールバックとして DATE_TAKEN に使うと
+            // Google フォトで「今日の日付」として表示されてしまうため、再度アサートする。
+            if (originalDateMs > 0L) {
+                val fixDates = ContentValues().apply {
+                    put(MediaStore.MediaColumns.DATE_TAKEN, originalDateMs)
+                    put(MediaStore.MediaColumns.DATE_MODIFIED, originalDateMs / 1000L)
+                }
+                context.contentResolver.update(uri, fixDates, null, null)
+            }
+
             Log.d(TAG, "success: $uri")
             uri.toString()
         } catch (e: Exception) {
