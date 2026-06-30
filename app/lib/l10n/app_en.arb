@@ -233,5 +233,19 @@
   "notifyOnSendResultLabel": "Send completion notification",
   "notifyOnSendResultSubtitle": "Show result in notification after sending",
   "reminderActionLabel": "\"Send now\" button in reminders",
-  "reminderActionSubtitle": "Add a one-tap send button to unsent reminders"
+  "reminderActionSubtitle": "Add a one-tap send button to unsent reminders",
+
+  "autoSendErrorConnection": "Could not connect to {serverName}",
+  "autoSendErrorAuth": "Auth error: token mismatch with {serverName}",
+  "autoSendErrorStorage": "{serverName} ran out of storage",
+  "autoSendErrorFiles": "{failedCount} of {totalCount} files failed to send",
+  "autoSendErrorHintConnection": "→ Start the receiver server in the Receive tab. If already running, run the connection test in Settings.",
+  "autoSendErrorHintAuth": "→ In Settings, re-scan the QR code to update the token.",
+  "autoSendErrorHintStorage": "→ Free up space on the receiver by confirming Google Photos upload.",
+  "autoSendErrorHintFiles": "→ Check the history (clock icon) to see which files failed.",
+  "autoSendErrorRetry": "Retry now",
+  "autoSendErrorTimeJustNow": "just now",
+  "autoSendErrorTimeMinutes": "{minutes}m ago",
+  "autoSendErrorTimeHours": "{hours}h ago",
+  "autoSendErrorTimeDays": "{days}d ago"
 }

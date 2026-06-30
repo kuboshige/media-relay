@@ -902,5 +902,68 @@
   "@reminderActionLabel": { "description": "Toggle label for reminder action button" },
 
   "reminderActionSubtitle": "未送信リマインダー通知からワンタップで送信を開始",
-  "@reminderActionSubtitle": { "description": "Subtitle for reminder action button toggle" }
+  "@reminderActionSubtitle": { "description": "Subtitle for reminder action button toggle" },
+
+  "autoSendErrorConnection": "{serverName} に接続できませんでした",
+  "@autoSendErrorConnection": {
+    "description": "Error banner: cannot connect to server",
+    "placeholders": { "serverName": { "type": "String" } }
+  },
+
+  "autoSendErrorAuth": "認証エラー: {serverName} のトークンが一致しません",
+  "@autoSendErrorAuth": {
+    "description": "Error banner: auth failed (401)",
+    "placeholders": { "serverName": { "type": "String" } }
+  },
+
+  "autoSendErrorStorage": "{serverName} の空き容量が不足して停止しました",
+  "@autoSendErrorStorage": {
+    "description": "Error banner: storage full",
+    "placeholders": { "serverName": { "type": "String" } }
+  },
+
+  "autoSendErrorFiles": "{failedCount}件の送信に失敗しました（計{totalCount}件）",
+  "@autoSendErrorFiles": {
+    "description": "Error banner: some files failed",
+    "placeholders": {
+      "failedCount": { "type": "int" },
+      "totalCount": { "type": "int" }
+    }
+  },
+
+  "autoSendErrorHintConnection": "→ 受信タブでサーバーを起動してください。起動済みなら設定から接続テストを実行してください",
+  "@autoSendErrorHintConnection": { "description": "Hint for connection error" },
+
+  "autoSendErrorHintAuth": "→ 設定でサーバーを選び「QRで追加」から再スキャンしてトークンを更新してください",
+  "@autoSendErrorHintAuth": { "description": "Hint for auth error" },
+
+  "autoSendErrorHintStorage": "→ 受信端末でGoogle フォトへのアップロードを確認し、ストレージを空けてください",
+  "@autoSendErrorHintStorage": { "description": "Hint for storage full error" },
+
+  "autoSendErrorHintFiles": "→ 送信履歴（右上の時計アイコン）で失敗したファイルを確認できます",
+  "@autoSendErrorHintFiles": { "description": "Hint for file send errors" },
+
+  "autoSendErrorRetry": "今すぐ再送する",
+  "@autoSendErrorRetry": { "description": "Retry button in error banner" },
+
+  "autoSendErrorTimeJustNow": "たった今",
+  "@autoSendErrorTimeJustNow": { "description": "Time label: just now" },
+
+  "autoSendErrorTimeMinutes": "{minutes}分前",
+  "@autoSendErrorTimeMinutes": {
+    "description": "Time label: N minutes ago",
+    "placeholders": { "minutes": { "type": "int" } }
+  },
+
+  "autoSendErrorTimeHours": "{hours}時間前",
+  "@autoSendErrorTimeHours": {
+    "description": "Time label: N hours ago",
+    "placeholders": { "hours": { "type": "int" } }
+  },
+
+  "autoSendErrorTimeDays": "{days}日前",
+  "@autoSendErrorTimeDays": {
+    "description": "Time label: N days ago",
+    "placeholders": { "days": { "type": "int" } }
+  }
 }

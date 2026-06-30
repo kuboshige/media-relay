@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'media_store.dart';
 
@@ -10,6 +11,7 @@ class AppSettings {
   static const _kReceiverAutoStopMinutes = 'receiverAutoStopMinutes';
   static const _kStartupAction = 'startupAction';
   static const _kReceiverToken = 'receiverToken';
+  static const _kLastSendError = 'lastSendErrorJson';
   static const _kNotifyOnSendResult = 'notifyOnSendResult';
   static const _kReminderSendNow = 'reminderSendNow';
   static const _kWifiAutoSendEnabled = 'wifiAutoSendEnabled';
@@ -96,6 +98,43 @@ class AppSettings {
   static Future<void> setReceiverToken(String token) async {
     final p = await SharedPreferences.getInstance();
     await p.setString(_kReceiverToken, token);
+  }
+
+  /// 最後の送信エラー情報を JSON で保存する。
+  /// 型: 'connection' | 'auth' | 'storage' | 'files'
+  static Future<Map<String, dynamic>?> lastSendError() async {
+    final p = await SharedPreferences.getInstance();
+    final json = p.getString(_kLastSendError);
+    if (json == null) return null;
+    try {
+      return jsonDecode(json) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<void> setLastSendError({
+    required String type,
+    required String serverName,
+    int failedCount = 0,
+    int totalCount = 0,
+  }) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setString(
+      _kLastSendError,
+      jsonEncode({
+        'type': type,
+        'serverName': serverName,
+        'failedCount': failedCount,
+        'totalCount': totalCount,
+        'at': DateTime.now().millisecondsSinceEpoch,
+      }),
+    );
+  }
+
+  static Future<void> clearLastSendError() async {
+    final p = await SharedPreferences.getInstance();
+    await p.remove(_kLastSendError);
   }
 
   /// 送信完了後に通知で結果を表示するか（既定 ON）。

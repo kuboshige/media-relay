@@ -131,6 +131,8 @@ class _HomePageState extends State<HomePage> {
   StreamSubscription<String?>? _wifiSsidSub;
   // Wi-Fi トリガーが同一接続で連続起動しないよう最後に送信した SSID を記録する
   String? _lastWifiAutoSendSsid;
+  // 最後の送信エラー（永続化）。null なら問題なし
+  Map<String, dynamic>? _persistedError;
 
   @override
   void initState() {
@@ -163,7 +165,11 @@ class _HomePageState extends State<HomePage> {
       return;
     }
     await _reloadMedia();
-    setState(() => _loading = false);
+    final savedError = await AppSettings.lastSendError();
+    setState(() {
+      _loading = false;
+      _persistedError = savedError;
+    });
 
     try {
       await NotifService.requestPermission();
@@ -417,6 +423,23 @@ class _HomePageState extends State<HomePage> {
     final caps = await uploader.info();
     if (caps == null) {
       setState(() => _status = null);
+      // auth エラーと接続失敗を区別して永続化する
+      final httpStatus = await uploader.pingStatus();
+      final errType = httpStatus == 401 ? 'auth' : 'connection';
+      await AppSettings.setLastSendError(
+        type: errType,
+        serverName: server.name,
+        totalCount: targets.length,
+      );
+      if (mounted) {
+        setState(() => _persistedError = {
+          'type': errType,
+          'serverName': server.name,
+          'failedCount': 0,
+          'totalCount': targets.length,
+          'at': DateTime.now().millisecondsSinceEpoch,
+        });
+      }
       _showConnectionDialog(server);
       return;
     }
@@ -564,6 +587,44 @@ class _HomePageState extends State<HomePage> {
         await NotifService.markSynced().timeout(const Duration(seconds: 5));
       } catch (_) {}
     }
+
+    // エラー状態の永続化（次回アプリ起動時に表示するため）
+    Map<String, dynamic>? newError;
+    if (stoppedForStorage) {
+      await AppSettings.setLastSendError(
+        type: 'storage',
+        serverName: server.name,
+        failedCount: failed,
+        totalCount: targets.length,
+      );
+      newError = {
+        'type': 'storage',
+        'serverName': server.name,
+        'failedCount': failed,
+        'totalCount': targets.length,
+        'at': DateTime.now().millisecondsSinceEpoch,
+      };
+    } else if (failed > 0 && done == 0 && skipped == 0) {
+      // 全件失敗のみエラー永続化（部分成功は通知で十分）
+      await AppSettings.setLastSendError(
+        type: 'files',
+        serverName: server.name,
+        failedCount: failed,
+        totalCount: targets.length,
+      );
+      newError = {
+        'type': 'files',
+        'serverName': server.name,
+        'failedCount': failed,
+        'totalCount': targets.length,
+        'at': DateTime.now().millisecondsSinceEpoch,
+      };
+    } else if (done > 0 || skipped > 0) {
+      // 少なくとも 1 件成功 → エラークリア
+      await AppSettings.clearLastSendError();
+      newError = null;
+    }
+    if (mounted) setState(() => _persistedError = newError);
 
     // 送信完了通知（バックグラウンド送信時などに結果を知らせる）
     try {
@@ -1022,13 +1083,15 @@ class _HomePageState extends State<HomePage> {
       children: [
         _serverBar(l10n),
         _statusBar(l10n),
+        if (_persistedError != null && _status == null)
+          _errorBanner(l10n, _persistedError!),
         if (_status != null) const LinearProgressIndicator(minHeight: 3),
         if (_status != null)
           Padding(
             padding: const EdgeInsets.all(8),
             child: Text(_status!),
           ),
-        if (_status == null && _lastResult != null)
+        if (_status == null && _lastResult != null && _persistedError == null)
           InkWell(
             onTap: _hasOpDetail ? _showOpDetail : null,
             child: Container(
@@ -1078,6 +1141,110 @@ class _HomePageState extends State<HomePage> {
                 ),
         ),
       ],
+    );
+  }
+
+  Widget _errorBanner(AppLocalizations l10n, Map<String, dynamic> err) {
+    final type = err['type'] as String? ?? 'connection';
+    final serverName = err['serverName'] as String? ?? '';
+    final failedCount = err['failedCount'] as int? ?? 0;
+    final totalCount = err['totalCount'] as int? ?? 0;
+    final atMs = err['at'] as int? ?? 0;
+
+    final String title;
+    final String hint;
+    final IconData icon;
+    switch (type) {
+      case 'auth':
+        title = l10n.autoSendErrorAuth(serverName);
+        hint = l10n.autoSendErrorHintAuth;
+        icon = Icons.lock_outline;
+      case 'storage':
+        title = l10n.autoSendErrorStorage(serverName);
+        hint = l10n.autoSendErrorHintStorage;
+        icon = Icons.sd_card_alert_outlined;
+      case 'files':
+        title = l10n.autoSendErrorFiles(failedCount, totalCount);
+        hint = l10n.autoSendErrorHintFiles;
+        icon = Icons.error_outline;
+      default:
+        title = l10n.autoSendErrorConnection(serverName);
+        hint = l10n.autoSendErrorHintConnection;
+        icon = Icons.wifi_off;
+    }
+
+    final String timeLabel;
+    if (atMs > 0) {
+      final elapsed = DateTime.now()
+          .difference(DateTime.fromMillisecondsSinceEpoch(atMs));
+      if (elapsed.inMinutes < 1) {
+        timeLabel = l10n.autoSendErrorTimeJustNow;
+      } else if (elapsed.inHours < 1) {
+        timeLabel = l10n.autoSendErrorTimeMinutes(elapsed.inMinutes);
+      } else if (elapsed.inDays < 1) {
+        timeLabel = l10n.autoSendErrorTimeHours(elapsed.inHours);
+      } else {
+        timeLabel = l10n.autoSendErrorTimeDays(elapsed.inDays);
+      }
+    } else {
+      timeLabel = '';
+    }
+
+    return Container(
+      width: double.infinity,
+      color: Colors.orange.withValues(alpha: 0.12),
+      padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: Colors.orange.shade800),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.orange.shade800),
+                ),
+              ),
+              if (timeLabel.isNotEmpty)
+                Text(timeLabel,
+                    style: TextStyle(
+                        fontSize: 11, color: Colors.orange.shade700)),
+              IconButton(
+                icon: const Icon(Icons.close, size: 18),
+                visualDensity: VisualDensity.compact,
+                color: Colors.orange.shade700,
+                onPressed: () async {
+                  await AppSettings.clearLastSendError();
+                  if (mounted) setState(() => _persistedError = null);
+                },
+              ),
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.only(left: 24, bottom: 4),
+            child: Text(hint,
+                style: TextStyle(fontSize: 12, color: Colors.orange.shade700)),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(left: 24),
+            child: TextButton.icon(
+              onPressed: _status == null ? _sendFromNotification : null,
+              icon: const Icon(Icons.send, size: 15),
+              label: Text(l10n.autoSendErrorRetry),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.orange.shade800,
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
