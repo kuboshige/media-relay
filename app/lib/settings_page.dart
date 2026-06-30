@@ -6,6 +6,7 @@ import 'uploader.dart';
 import 'app_settings.dart';
 import 'notif_service.dart';
 import 'qr_scan_page.dart';
+import 'wifi_monitor.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -22,6 +23,12 @@ class _SettingsPageState extends State<SettingsPage> {
   String _deviceName = '';
   int _receiverPort = AppSettings.defaultReceiverPort;
   int _autoStopMinutes = AppSettings.defaultAutoStopMinutes;
+  bool _notifyOnSendResult = true;
+  bool _reminderSendNow = true;
+  bool _wifiAutoSendEnabled = false;
+  String _wifiAutoSendSsid = '';
+  String? _currentSsid;
+  final TextEditingController _ssidCtrl = TextEditingController();
 
   @override
   void initState() {
@@ -37,7 +44,19 @@ class _SettingsPageState extends State<SettingsPage> {
     _deviceName = await AppSettings.deviceName();
     _receiverPort = await AppSettings.receiverPort();
     _autoStopMinutes = await AppSettings.receiverAutoStopMinutes();
+    _notifyOnSendResult = await AppSettings.notifyOnSendResult();
+    _reminderSendNow = await AppSettings.reminderSendNow();
+    _wifiAutoSendEnabled = await AppSettings.wifiAutoSendEnabled();
+    _wifiAutoSendSsid = (await AppSettings.wifiAutoSendSsid()) ?? '';
+    _ssidCtrl.text = _wifiAutoSendSsid;
+    _currentSsid = await WifiMonitor.getCurrentSsid();
     setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _ssidCtrl.dispose();
+    super.dispose();
   }
 
   String _startupActionLabel(String v, AppLocalizations l10n) {
@@ -179,6 +198,63 @@ class _SettingsPageState extends State<SettingsPage> {
           ],
         ),
       );
+
+  String _wifiAutoSendStatusText(AppLocalizations l10n) {
+    if (!_wifiAutoSendEnabled) return '';
+    if (_wifiAutoSendSsid.isEmpty) return l10n.wifiAutoSendStatusAny;
+    if (_currentSsid == null) return l10n.wifiAutoSendStatusSsidUnknown;
+    return l10n.wifiAutoSendStatusSsid(_wifiAutoSendSsid);
+  }
+
+  Widget _wifiSsidTile(AppLocalizations l10n) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(l10n.wifiAutoSendSsidLabel,
+              style: Theme.of(context).textTheme.labelMedium),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _ssidCtrl,
+                  decoration: InputDecoration(
+                    hintText: l10n.wifiAutoSendSsidHint,
+                    isDense: true,
+                    border: const OutlineInputBorder(),
+                  ),
+                  onSubmitted: (v) async {
+                    await AppSettings.setWifiAutoSendSsid(v.trim());
+                    setState(() => _wifiAutoSendSsid = v.trim());
+                  },
+                ),
+              ),
+              if (_currentSsid != null) ...[
+                const SizedBox(width: 8),
+                OutlinedButton(
+                  onPressed: () async {
+                    await AppSettings.setWifiAutoSendSsid(_currentSsid!);
+                    _ssidCtrl.text = _currentSsid!;
+                    setState(() => _wifiAutoSendSsid = _currentSsid!);
+                  },
+                  child: Text(l10n.wifiAutoSendUseCurrent),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            _currentSsid != null
+                ? l10n.wifiAutoSendCurrentSsid(_currentSsid!)
+                : l10n.wifiAutoSendCurrentSsidNone,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+      ),
+    );
+  }
 
   Future<void> _persist() async {
     await ServerConfig.save(_servers);
@@ -383,6 +459,43 @@ class _SettingsPageState extends State<SettingsPage> {
           // ━━━━ Notifications ━━━━
           _sectionHeader(l10n.settingsSectionNotifications),
           _reminderTile(l10n),
+          SwitchListTile(
+            secondary: const Icon(Icons.notifications_outlined),
+            title: Text(l10n.reminderActionLabel),
+            subtitle: Text(l10n.reminderActionSubtitle),
+            value: _reminderSendNow,
+            onChanged: (v) async {
+              await AppSettings.setReminderSendNow(v);
+              setState(() => _reminderSendNow = v);
+              await NotifService.reschedule();
+            },
+          ),
+          SwitchListTile(
+            secondary: const Icon(Icons.check_circle_outline),
+            title: Text(l10n.notifyOnSendResultLabel),
+            subtitle: Text(l10n.notifyOnSendResultSubtitle),
+            value: _notifyOnSendResult,
+            onChanged: (v) async {
+              await AppSettings.setNotifyOnSendResult(v);
+              setState(() => _notifyOnSendResult = v);
+            },
+          ),
+          const Divider(height: 1),
+
+          // ━━━━ Auto-send ━━━━
+          _sectionHeader(l10n.settingsSectionAutoSend),
+          SwitchListTile(
+            secondary: const Icon(Icons.wifi),
+            title: Text(l10n.wifiAutoSendLabel),
+            subtitle: Text(_wifiAutoSendStatusText(l10n)),
+            value: _wifiAutoSendEnabled,
+            onChanged: (v) async {
+              await AppSettings.setWifiAutoSendEnabled(v);
+              if (v) _currentSsid = await WifiMonitor.getCurrentSsid();
+              setState(() => _wifiAutoSendEnabled = v);
+            },
+          ),
+          if (_wifiAutoSendEnabled) _wifiSsidTile(l10n),
           const Divider(height: 1),
 
           // ━━━━ About ━━━━

@@ -6,6 +6,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:media_relay/gen_l10n/app_localizations.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+import 'dart:async';
 import 'app_settings.dart';
 import 'media_source.dart';
 import 'server_config.dart';
@@ -19,6 +20,7 @@ import 'sent_store.dart';
 import 'history_page.dart';
 import 'notif_service.dart';
 import 'receiver_page.dart';
+import 'wifi_monitor.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -125,11 +127,26 @@ class _HomePageState extends State<HomePage> {
   String? _lastResult;
   List<FileOp> _lastOps = [];
   int? _freeBytes;
+  StreamSubscription<void>? _notifSendNowSub;
+  StreamSubscription<String?>? _wifiSsidSub;
+  // Wi-Fi トリガーが同一接続で連続起動しないよう最後に送信した SSID を記録する
+  String? _lastWifiAutoSendSsid;
 
   @override
   void initState() {
     super.initState();
+    _notifSendNowSub =
+        NotifService.sendNowEvents.listen((_) => _sendFromNotification());
+    _wifiSsidSub =
+        WifiMonitor.ssidStream.listen(_onWifiSsidEvent);
     _init();
+  }
+
+  @override
+  void dispose() {
+    _notifSendNowSub?.cancel();
+    _wifiSsidSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _init() async {
@@ -157,6 +174,15 @@ class _HomePageState extends State<HomePage> {
     final startupAction = await AppSettings.startupAction();
     if (startupAction != AppSettings.startupActionNone && mounted) {
       await _runStartupAction(startupAction);
+    }
+
+    // startupAction が実行されなかった場合のみ Wi-Fi トリガーをチェック
+    if (startupAction == AppSettings.startupActionNone) {
+      final wifiEnabled = await AppSettings.wifiAutoSendEnabled();
+      if (wifiEnabled) {
+        final ssid = await WifiMonitor.getCurrentSsid();
+        _onWifiSsidEvent(ssid);
+      }
     }
   }
 
@@ -310,6 +336,47 @@ class _HomePageState extends State<HomePage> {
     if (sentItems.isNotEmpty) {
       await _deleteFromDevice(sentItems, skipConfirmation: true);
     }
+  }
+
+  /// リマインダー通知の「今すぐ送信」から呼ばれる。確認ダイアログなしで送信開始。
+  Future<void> _sendFromNotification() async {
+    if (!mounted || _status != null || _loading) return;
+    final targets = _all
+        .where((m) => !_sentIds.contains(m.id))
+        .toList()
+        .reversed
+        .toList();
+    if (targets.isEmpty) return;
+    await _send(targets);
+  }
+
+  /// Wi-Fi SSID 変化イベントのハンドラ。
+  /// 接続先が設定済み SSID と一致したとき未送信ファイルを自動送信する。
+  Future<void> _onWifiSsidEvent(String? ssid) async {
+    if (!mounted) return;
+    final enabled = await AppSettings.wifiAutoSendEnabled();
+    if (!enabled) return;
+
+    final targetSsid = await AppSettings.wifiAutoSendSsid();
+
+    // SSID が読み取れた場合：一致しなければスキップ
+    if (ssid != null && targetSsid != null && ssid != targetSsid) return;
+    // SSID が読み取れない場合：target 未指定なら任意 Wi-Fi で送信、指定あれば安全のためスキップ
+    if (ssid == null && targetSsid != null) return;
+
+    // 同一 SSID で連続送信を防ぐ
+    final key = ssid ?? '';
+    if (_lastWifiAutoSendSsid == key) return;
+    _lastWifiAutoSendSsid = key;
+
+    if (_status != null || _loading) return;
+    final targets = _all
+        .where((m) => !_sentIds.contains(m.id))
+        .toList()
+        .reversed
+        .toList();
+    if (targets.isEmpty) return;
+    await _send(targets);
   }
 
   Future<void> _sendAllUnsent() async {
@@ -497,6 +564,16 @@ class _HomePageState extends State<HomePage> {
         await NotifService.markSynced().timeout(const Duration(seconds: 5));
       } catch (_) {}
     }
+
+    // 送信完了通知（バックグラウンド送信時などに結果を知らせる）
+    try {
+      await NotifService.showSendResult(
+        done: done,
+        skipped: skipped,
+        failed: failed,
+        destName: server.name,
+      );
+    } catch (_) {}
 
     ServerInfo? si;
     try {

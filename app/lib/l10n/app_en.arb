@@ -218,5 +218,20 @@
   "folderPreviewHint": "{count} items (showing first 200 as preview)",
   "folderNoMedia": "No media here",
 
-  "vpnIfaceLabel": "{iface} (VPN etc.)"
+  "vpnIfaceLabel": "{iface} (VPN etc.)",
+
+  "settingsSectionAutoSend": "Auto-send",
+  "wifiAutoSendLabel": "Auto-send on Wi-Fi connect",
+  "wifiAutoSendSsidLabel": "Target Wi-Fi SSID (optional)",
+  "wifiAutoSendSsidHint": "e.g. MyHome5G — leave empty for any Wi-Fi",
+  "wifiAutoSendStatusAny": "Will auto-send when any Wi-Fi connects",
+  "wifiAutoSendStatusSsid": "Will auto-send when connected to: {ssid}",
+  "wifiAutoSendStatusSsidUnknown": "SSID set — auto-send when connected (SSID verify unavailable on this OS)",
+  "wifiAutoSendCurrentSsid": "Current Wi-Fi: {ssid}",
+  "wifiAutoSendCurrentSsidNone": "Not connected to Wi-Fi (or SSID unavailable)",
+  "wifiAutoSendUseCurrent": "Use current",
+  "notifyOnSendResultLabel": "Send completion notification",
+  "notifyOnSendResultSubtitle": "Show result in notification after sending",
+  "reminderActionLabel": "\"Send now\" button in reminders",
+  "reminderActionSubtitle": "Add a one-tap send button to unsent reminders"
 }

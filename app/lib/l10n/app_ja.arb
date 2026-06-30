@@ -854,5 +854,53 @@
   "@vpnIfaceLabel": {
     "description": "VPN / virtual interface address label in receiver page",
     "placeholders": { "iface": { "type": "String" } }
-  }
+  },
+
+  "settingsSectionAutoSend": "自動送信",
+  "@settingsSectionAutoSend": { "description": "Settings section header for auto-send" },
+
+  "wifiAutoSendLabel": "Wi-Fi接続時に自動送信",
+  "@wifiAutoSendLabel": { "description": "Toggle label for Wi-Fi triggered auto-send" },
+
+  "wifiAutoSendSsidLabel": "対象Wi-Fi SSID（任意）",
+  "@wifiAutoSendSsidLabel": { "description": "Label for SSID filter field" },
+
+  "wifiAutoSendSsidHint": "例: MyHome5G — 空欄で全Wi-Fiが対象",
+  "@wifiAutoSendSsidHint": { "description": "Placeholder for SSID field" },
+
+  "wifiAutoSendStatusAny": "Wi-Fi接続時に未送信ファイルを自動送信します",
+  "@wifiAutoSendStatusAny": { "description": "Status when no SSID filter set" },
+
+  "wifiAutoSendStatusSsid": "{ssid} に接続したとき自動送信します",
+  "@wifiAutoSendStatusSsid": {
+    "description": "Status with SSID filter set",
+    "placeholders": { "ssid": { "type": "String" } }
+  },
+
+  "wifiAutoSendStatusSsidUnknown": "SSID設定済み — 接続時に自動送信（このOS版ではSSID確認不可）",
+  "@wifiAutoSendStatusSsidUnknown": { "description": "Status when SSID is set but unreadable" },
+
+  "wifiAutoSendCurrentSsid": "現在のWi-Fi: {ssid}",
+  "@wifiAutoSendCurrentSsid": {
+    "description": "Currently connected SSID display",
+    "placeholders": { "ssid": { "type": "String" } }
+  },
+
+  "wifiAutoSendCurrentSsidNone": "Wi-Fi未接続（またはSSID取得不可）",
+  "@wifiAutoSendCurrentSsidNone": { "description": "No Wi-Fi or SSID unreadable" },
+
+  "wifiAutoSendUseCurrent": "このSSIDを使用",
+  "@wifiAutoSendUseCurrent": { "description": "Button to use current SSID" },
+
+  "notifyOnSendResultLabel": "送信完了通知",
+  "@notifyOnSendResultLabel": { "description": "Toggle label for send result notification" },
+
+  "notifyOnSendResultSubtitle": "送信完了後に通知で結果を表示",
+  "@notifyOnSendResultSubtitle": { "description": "Subtitle for send result notification toggle" },
+
+  "reminderActionLabel": "リマインダーに「今すぐ送信」ボタン",
+  "@reminderActionLabel": { "description": "Toggle label for reminder action button" },
+
+  "reminderActionSubtitle": "未送信リマインダー通知からワンタップで送信を開始",
+  "@reminderActionSubtitle": { "description": "Subtitle for reminder action button toggle" }
 }

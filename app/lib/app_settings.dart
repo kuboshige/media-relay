@@ -10,6 +10,10 @@ class AppSettings {
   static const _kReceiverAutoStopMinutes = 'receiverAutoStopMinutes';
   static const _kStartupAction = 'startupAction';
   static const _kReceiverToken = 'receiverToken';
+  static const _kNotifyOnSendResult = 'notifyOnSendResult';
+  static const _kReminderSendNow = 'reminderSendNow';
+  static const _kWifiAutoSendEnabled = 'wifiAutoSendEnabled';
+  static const _kWifiAutoSendSsid = 'wifiAutoSendSsid';
 
   static const String startupActionNone = 'none';
   static const String startupActionSend = 'send';
@@ -92,6 +96,51 @@ class AppSettings {
   static Future<void> setReceiverToken(String token) async {
     final p = await SharedPreferences.getInstance();
     await p.setString(_kReceiverToken, token);
+  }
+
+  /// 送信完了後に通知で結果を表示するか（既定 ON）。
+  static Future<bool> notifyOnSendResult() async {
+    final p = await SharedPreferences.getInstance();
+    return p.getBool(_kNotifyOnSendResult) ?? true;
+  }
+
+  static Future<void> setNotifyOnSendResult(bool v) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_kNotifyOnSendResult, v);
+  }
+
+  /// リマインダー通知に「今すぐ送信」ボタンを表示するか（既定 ON）。
+  static Future<bool> reminderSendNow() async {
+    final p = await SharedPreferences.getInstance();
+    return p.getBool(_kReminderSendNow) ?? true;
+  }
+
+  static Future<void> setReminderSendNow(bool v) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_kReminderSendNow, v);
+  }
+
+  /// Wi-Fi 接続時に未送信ファイルを自動送信するか（既定 OFF）。
+  static Future<bool> wifiAutoSendEnabled() async {
+    final p = await SharedPreferences.getInstance();
+    return p.getBool(_kWifiAutoSendEnabled) ?? false;
+  }
+
+  static Future<void> setWifiAutoSendEnabled(bool v) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_kWifiAutoSendEnabled, v);
+  }
+
+  /// 自動送信を絞り込む対象 Wi-Fi の SSID。空なら全 Wi-Fi で自動送信。
+  static Future<String?> wifiAutoSendSsid() async {
+    final p = await SharedPreferences.getInstance();
+    final v = p.getString(_kWifiAutoSendSsid);
+    return (v == null || v.isEmpty) ? null : v;
+  }
+
+  static Future<void> setWifiAutoSendSsid(String ssid) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setString(_kWifiAutoSendSsid, ssid);
   }
 
   /// 最後に送信した時刻（ms）。未記録なら null。
