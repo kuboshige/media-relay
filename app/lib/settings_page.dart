@@ -211,6 +211,9 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Widget _wifiSsidTile(AppLocalizations l10n) {
+    final subtleStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        );
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       child: Column(
@@ -219,24 +222,28 @@ class _SettingsPageState extends State<SettingsPage> {
           Text(l10n.wifiAutoSendSsidLabel,
               style: Theme.of(context).textTheme.labelMedium),
           const SizedBox(height: 4),
+          TextField(
+            controller: _ssidCtrl,
+            decoration: InputDecoration(
+              hintText: l10n.wifiAutoSendSsidHint,
+              isDense: true,
+              border: const OutlineInputBorder(),
+            ),
+            onSubmitted: (v) async {
+              await AppSettings.setWifiAutoSendSsid(v.trim());
+              setState(() => _wifiAutoSendSsid = v.trim());
+            },
+          ),
+          const SizedBox(height: 8),
           Row(
             children: [
-              Expanded(
-                child: TextField(
-                  controller: _ssidCtrl,
-                  decoration: InputDecoration(
-                    hintText: l10n.wifiAutoSendSsidHint,
-                    isDense: true,
-                    border: const OutlineInputBorder(),
-                  ),
-                  onSubmitted: (v) async {
-                    await AppSettings.setWifiAutoSendSsid(v.trim());
-                    setState(() => _wifiAutoSendSsid = v.trim());
-                  },
+              OutlinedButton.icon(
+                icon: const Icon(Icons.wifi_find, size: 16),
+                label: Text(l10n.wifiAutoSendUseCurrent),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-              ),
-              const SizedBox(width: 8),
-              OutlinedButton(
                 onPressed: () async {
                   var status = await Permission.locationWhenInUse.status;
                   if (!status.isGranted) {
@@ -265,16 +272,30 @@ class _SettingsPageState extends State<SettingsPage> {
                     _wifiAutoSendSsid = ssid;
                   });
                 },
-                child: Text(l10n.wifiAutoSendUseCurrent),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  _currentSsid != null
+                      ? l10n.wifiAutoSendCurrentSsid(_currentSsid!)
+                      : l10n.wifiAutoSendCurrentSsidNone,
+                  style: subtleStyle,
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 6),
-          Text(
-            _currentSsid != null
-                ? l10n.wifiAutoSendCurrentSsid(_currentSsid!)
-                : l10n.wifiAutoSendCurrentSsidNone,
-            style: Theme.of(context).textTheme.bodySmall,
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.info_outline,
+                  size: 13,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(l10n.wifiAutoSendHowToFind, style: subtleStyle),
+              ),
+            ],
           ),
         ],
       ),

@@ -862,35 +862,38 @@
   "wifiAutoSendLabel": "Wi-Fi接続時に自動送信",
   "@wifiAutoSendLabel": { "description": "Toggle label for Wi-Fi triggered auto-send" },
 
-  "wifiAutoSendSsidLabel": "対象Wi-Fi SSID（任意）",
-  "@wifiAutoSendSsidLabel": { "description": "Label for SSID filter field" },
+  "wifiAutoSendSsidLabel": "自動送信するWi-Fi名（任意）",
+  "@wifiAutoSendSsidLabel": { "description": "Label for Wi-Fi name filter field" },
 
-  "wifiAutoSendSsidHint": "例: MyHome5G — 空欄で全Wi-Fiが対象",
-  "@wifiAutoSendSsidHint": { "description": "Placeholder for SSID field" },
+  "wifiAutoSendSsidHint": "例: MyHome5G（空欄なら全Wi-Fiが対象）",
+  "@wifiAutoSendSsidHint": { "description": "Placeholder for Wi-Fi name field" },
 
   "wifiAutoSendStatusAny": "Wi-Fi接続時に未送信ファイルを自動送信します",
-  "@wifiAutoSendStatusAny": { "description": "Status when no SSID filter set" },
+  "@wifiAutoSendStatusAny": { "description": "Status when no Wi-Fi name filter set" },
 
-  "wifiAutoSendStatusSsid": "{ssid} に接続したとき自動送信します",
+  "wifiAutoSendStatusSsid": "「{ssid}」に接続したとき自動送信します",
   "@wifiAutoSendStatusSsid": {
-    "description": "Status with SSID filter set",
+    "description": "Status with Wi-Fi name filter set",
     "placeholders": { "ssid": { "type": "String" } }
   },
 
-  "wifiAutoSendStatusSsidUnknown": "SSID設定済み — 接続時に自動送信（このOS版ではSSID確認不可）",
-  "@wifiAutoSendStatusSsidUnknown": { "description": "Status when SSID is set but unreadable" },
+  "wifiAutoSendStatusSsidUnknown": "Wi-Fi名設定済み — 接続時に自動送信します",
+  "@wifiAutoSendStatusSsidUnknown": { "description": "Status when Wi-Fi name is set but unreadable" },
 
-  "wifiAutoSendCurrentSsid": "現在のWi-Fi: {ssid}",
+  "wifiAutoSendCurrentSsid": "接続中: {ssid}",
   "@wifiAutoSendCurrentSsid": {
-    "description": "Currently connected SSID display",
+    "description": "Currently connected Wi-Fi name display",
     "placeholders": { "ssid": { "type": "String" } }
   },
 
-  "wifiAutoSendCurrentSsidNone": "Wi-Fi未接続またはSSID取得不可（「このSSIDを使用」で位置情報を許可してください）",
-  "@wifiAutoSendCurrentSsidNone": { "description": "No Wi-Fi or SSID unreadable" },
+  "wifiAutoSendCurrentSsidNone": "Wi-Fi未接続（または位置情報の権限がないため取得不可）",
+  "@wifiAutoSendCurrentSsidNone": { "description": "No Wi-Fi or name unreadable" },
 
-  "wifiAutoSendUseCurrent": "このSSIDを使用",
-  "@wifiAutoSendUseCurrent": { "description": "Button to use current SSID" },
+  "wifiAutoSendUseCurrent": "今のWi-Fiを使う",
+  "@wifiAutoSendUseCurrent": { "description": "Button to auto-fill current Wi-Fi name" },
+
+  "wifiAutoSendHowToFind": "Wi-Fi名の調べ方: スマホの「設定 → Wi-Fi（またはネットワーク）」を開き、チェックマーク（✓）がついているネットワーク名を上の欄に入力してください",
+  "@wifiAutoSendHowToFind": { "description": "Manual instructions for finding Wi-Fi name" },
 
   "wifiAutoSendDeleteLabel": "Wi-Fi自動送信後に削除",
   "@wifiAutoSendDeleteLabel": { "description": "Toggle label for auto-delete after Wi-Fi send" },
