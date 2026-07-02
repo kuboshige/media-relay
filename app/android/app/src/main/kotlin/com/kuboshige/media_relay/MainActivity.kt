@@ -1,6 +1,7 @@
 package com.kuboshige.media_relay
 
 import android.content.ContentUris
+import android.content.Context
 import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.Network
@@ -8,6 +9,8 @@ import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.net.Uri
 import android.net.wifi.WifiInfo
+import android.net.wifi.WifiManager
+import android.os.BatteryManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -132,6 +135,14 @@ class MainActivity : FlutterActivity() {
                     val pm = getSystemService(POWER_SERVICE) as PowerManager
                     result.success(pm.isIgnoringBatteryOptimizations(packageName))
                 }
+                "isCharging" -> {
+                    try {
+                        val bm = getSystemService(BATTERY_SERVICE) as BatteryManager
+                        result.success(bm.isCharging)
+                    } catch (e: Exception) {
+                        result.success(false)
+                    }
+                }
                 "requestIgnoreBatteryOptimization" -> {
                     try {
                         startActivity(
@@ -155,18 +166,53 @@ class MainActivity : FlutterActivity() {
         val request = NetworkRequest.Builder()
             .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
             .build()
-        wifiNetworkCallback = object : ConnectivityManager.NetworkCallback() {
-            override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
-                val ssid = extractSsid(caps)
-                mainHandler.post { wifiSsidSink?.success(ssid) }
+        // Android 12 (API 31) 以降は FLAG_INCLUDE_LOCATION_INFO を付けないと
+        // コールバックの NetworkCapabilities から SSID を読み取れない（常に伏字になる）。
+        wifiNetworkCallback = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            object : ConnectivityManager.NetworkCallback(
+                ConnectivityManager.NetworkCallback.FLAG_INCLUDE_LOCATION_INFO
+            ) {
+                override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
+                    emitConnected(extractSsid(caps))
+                }
+                override fun onLost(network: Network) = emitDisconnected()
             }
-            override fun onLost(network: Network) {
-                mainHandler.post { wifiSsidSink?.success(null) }
+        } else {
+            object : ConnectivityManager.NetworkCallback() {
+                override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
+                    emitConnected(extractSsid(caps))
+                }
+                override fun onLost(network: Network) = emitDisconnected()
             }
         }
         cm.registerNetworkCallback(request, wifiNetworkCallback!!)
-        // 現在の SSID を初回イベントとして送出する
-        mainHandler.post { wifiSsidSink?.success(getSsidBestEffort()) }
+        // 現在の接続状態を初回イベントとして送出する
+        if (isWifiConnected()) {
+            emitConnected(getSsidBestEffort())
+        } else {
+            emitDisconnected()
+        }
+    }
+
+    /** Wi-Fi 接続イベントを Dart に送る（ssid は取得できなければ null）。 */
+    private fun emitConnected(ssid: String?) {
+        mainHandler.post {
+            wifiSsidSink?.success(mapOf("connected" to true, "ssid" to ssid))
+        }
+    }
+
+    /** Wi-Fi 切断イベントを Dart に送る。 */
+    private fun emitDisconnected() {
+        mainHandler.post {
+            wifiSsidSink?.success(mapOf("connected" to false, "ssid" to null))
+        }
+    }
+
+    private fun isWifiConnected(): Boolean {
+        val cm = getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
+        val network = cm.activeNetwork ?: return false
+        val caps = cm.getNetworkCapabilities(network) ?: return false
+        return caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
     }
 
     private fun stopWifiMonitoring() {
@@ -183,9 +229,22 @@ class MainActivity : FlutterActivity() {
     @Suppress("DEPRECATION")
     private fun getSsidBestEffort(): String? {
         val cm = getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
-        val network = cm.activeNetwork ?: return null
-        val caps = cm.getNetworkCapabilities(network) ?: return null
-        return extractSsid(caps)
+        val network = cm.activeNetwork
+        if (network != null) {
+            val caps = cm.getNetworkCapabilities(network)
+            if (caps != null) {
+                val s = extractSsid(caps)
+                if (s != null) return s
+            }
+        }
+        // フォールバック: WifiManager 経由（非推奨だが位置情報権限があれば取得できる）。
+        return try {
+            val wm = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+            val ssid = wm.connectionInfo.ssid?.removeSurrounding("\"")
+            if (ssid.isNullOrBlank() || ssid == "<unknown ssid>") null else ssid
+        } catch (e: Exception) {
+            null
+        }
     }
 
     private fun extractSsid(caps: NetworkCapabilities): String? {

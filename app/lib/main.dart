@@ -130,10 +130,12 @@ class _HomePageState extends State<HomePage> {
   String? _lastResult;
   List<FileOp> _lastOps = [];
   int? _freeBytes;
+  int? _lastSyncMs;
   StreamSubscription<void>? _notifSendNowSub;
-  StreamSubscription<String?>? _wifiSsidSub;
-  // Wi-Fi トリガーが同一接続で連続起動しないよう最後に送信した SSID を記録する
-  String? _lastWifiAutoSendSsid;
+  StreamSubscription<WifiEvent>? _wifiSub;
+  // Wi-Fi トリガーが同一接続で連続起動しないよう、最後に送信した接続のキーを記録する。
+  // 切断イベントで null にリセットし、次の接続で再送できるようにする。
+  String? _lastWifiAutoSendKey;
   // 最後の送信エラー（永続化）。null なら問題なし
   Map<String, dynamic>? _persistedError;
 
@@ -142,15 +144,14 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     _notifSendNowSub =
         NotifService.sendNowEvents.listen((_) => _sendFromNotification());
-    _wifiSsidSub =
-        WifiMonitor.ssidStream.listen(_onWifiSsidEvent);
+    _wifiSub = WifiMonitor.events.listen(_onWifiEvent);
     _init();
   }
 
   @override
   void dispose() {
     _notifSendNowSub?.cancel();
-    _wifiSsidSub?.cancel();
+    _wifiSub?.cancel();
     super.dispose();
   }
 
@@ -169,9 +170,11 @@ class _HomePageState extends State<HomePage> {
     }
     await _reloadMedia();
     final savedError = await AppSettings.lastSendError();
+    final lastSync = await AppSettings.lastSyncMs();
     setState(() {
       _loading = false;
       _persistedError = savedError;
+      _lastSyncMs = lastSync;
     });
 
     try {
@@ -192,7 +195,7 @@ class _HomePageState extends State<HomePage> {
       final wifiEnabled = await AppSettings.wifiAutoSendEnabled();
       if (wifiEnabled) {
         final ssid = await WifiMonitor.getCurrentSsid();
-        _onWifiSsidEvent(ssid);
+        _onWifiEvent(WifiEvent(connected: true, ssid: ssid));
       }
     }
   }
@@ -358,27 +361,37 @@ class _HomePageState extends State<HomePage> {
         .reversed
         .toList();
     if (targets.isEmpty) return;
-    await _send(targets);
+    await _send(targets, silent: true);
   }
 
-  /// Wi-Fi SSID 変化イベントのハンドラ。
-  /// 接続先が設定済み SSID と一致したとき未送信ファイルを自動送信する。
-  Future<void> _onWifiSsidEvent(String? ssid) async {
+  /// Wi-Fi 接続／切断イベントのハンドラ。
+  /// 接続先が設定済みの Wi-Fi 名と一致したとき未送信ファイルを自動送信する。
+  /// 自動送信では端末からの削除は一切行わない（削除は手動操作のときだけ）。
+  Future<void> _onWifiEvent(WifiEvent e) async {
     if (!mounted) return;
     final enabled = await AppSettings.wifiAutoSendEnabled();
     if (!enabled) return;
 
+    // 切断: 次回接続で再送できるようキーをリセットする。送信はしない。
+    if (!e.connected) {
+      _lastWifiAutoSendKey = null;
+      return;
+    }
+
     final targetSsid = await AppSettings.wifiAutoSendSsid();
+    final ssid = e.ssid;
 
-    // SSID が読み取れた場合：一致しなければスキップ
-    if (ssid != null && targetSsid != null && ssid != targetSsid) return;
-    // SSID が読み取れない場合：target 未指定なら任意 Wi-Fi で送信、指定あれば安全のためスキップ
-    if (ssid == null && targetSsid != null) return;
+    if (targetSsid != null) {
+      // Wi-Fi 名を読み取れた場合：一致しなければスキップ
+      if (ssid != null && ssid != targetSsid) return;
+      // 対象 Wi-Fi 名は指定済みだが読み取れない場合：誤送信を避けるためスキップ
+      if (ssid == null) return;
+    }
 
-    // 同一 SSID で連続送信を防ぐ
-    final key = ssid ?? '';
-    if (_lastWifiAutoSendSsid == key) return;
-    _lastWifiAutoSendSsid = key;
+    // 同一接続で連続送信しない。切断（上でリセット）→再接続で再度送信できる。
+    final key = ssid ?? '__any__';
+    if (_lastWifiAutoSendKey == key) return;
+    _lastWifiAutoSendKey = key;
 
     if (_status != null || _loading) return;
     final targets = _all
@@ -387,19 +400,7 @@ class _HomePageState extends State<HomePage> {
         .reversed
         .toList();
     if (targets.isEmpty) return;
-    await _send(targets);
-
-    if (!mounted) return;
-    final deleteEnabled = await AppSettings.wifiAutoSendDelete();
-    if (deleteEnabled) {
-      final sentItems = _lastOps
-          .where((o) => o.status == FileOpStatus.sent)
-          .map((o) => o.item)
-          .toList();
-      if (sentItems.isNotEmpty) {
-        await _deleteFromDevice(sentItems, skipConfirmation: true);
-      }
-    }
+    await _send(targets, silent: true);
   }
 
   Future<void> _sendAllUnsent() async {
@@ -427,11 +428,11 @@ class _HomePageState extends State<HomePage> {
     if (ok == true) await _send(targets);
   }
 
-  Future<void> _send(List<MediaItem> targets) async {
+  Future<void> _send(List<MediaItem> targets, {bool silent = false}) async {
     final l10n = AppLocalizations.of(context)!;
     final server = _currentServer;
     if (server == null) {
-      _showSnack(l10n.noServerSet);
+      if (!silent) _showSnack(l10n.noServerSet);
       return;
     }
 
@@ -457,7 +458,8 @@ class _HomePageState extends State<HomePage> {
           'at': DateTime.now().millisecondsSinceEpoch,
         });
       }
-      _showConnectionDialog(server);
+      // 自動送信（silent）ではモーダルを出さない。エラーバナーで十分。
+      if (!silent) _showConnectionDialog(server);
       return;
     }
     final supportsScan = caps.supportsMediaScan;
@@ -670,9 +672,13 @@ class _HomePageState extends State<HomePage> {
       _lastResult = summary;
       _lastOps = ops;
       _freeBytes = si?.freeBytes;
+      if (done > 0 || skipped > 0) {
+        _lastSyncMs = DateTime.now().millisecondsSinceEpoch;
+      }
     });
     _showSnack(summary);
-    if (scanWarning != null) _showScanSetupDialog();
+    // 自動送信（silent）では設定手順のモーダルは出さない。
+    if (scanWarning != null && !silent) _showScanSetupDialog();
   }
 
   Future<void> _fixSentDates() async {
@@ -1312,9 +1318,28 @@ class _HomePageState extends State<HomePage> {
                 : l10n.statusBarUnsent(_unsentCount),
             style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
           ),
+          const Spacer(),
+          Icon(Icons.schedule, size: 14, color: Colors.grey.shade500),
+          const SizedBox(width: 4),
+          Text(
+            _lastSyncMs == null
+                ? l10n.lastSyncNever
+                : l10n.lastSyncAt(_relTime(_lastSyncMs!, l10n)),
+            style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+          ),
         ],
       ),
     );
+  }
+
+  /// ミリ秒エポックを「たった今 / ○分前 / ○時間前 / ○日前」に整形する。
+  String _relTime(int ms, AppLocalizations l10n) {
+    final elapsed =
+        DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(ms));
+    if (elapsed.inMinutes < 1) return l10n.autoSendErrorTimeJustNow;
+    if (elapsed.inHours < 1) return l10n.autoSendErrorTimeMinutes(elapsed.inMinutes);
+    if (elapsed.inDays < 1) return l10n.autoSendErrorTimeHours(elapsed.inHours);
+    return l10n.autoSendErrorTimeDays(elapsed.inDays);
   }
 
   Future<void> _showSelectionActions() async {

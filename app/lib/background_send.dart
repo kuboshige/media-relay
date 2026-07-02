@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui' show PlatformDispatcher;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:photo_manager/photo_manager.dart';
@@ -32,7 +33,9 @@ Future<void> scheduleBgSendIfEnabled() async {
     await Workmanager().registerPeriodicTask(
       kBgSendUniqueKey,
       kBgSendTask,
-      frequency: const Duration(hours: 1),
+      // WorkManager の最短間隔は15分。帰宅後なるべく早く送るため最短にする。
+      // 送信先は自宅LAN上の固定IPなので、外出先Wi-Fiでは ping が通らず即終了する。
+      frequency: const Duration(minutes: 15),
       constraints: Constraints(networkType: NetworkType.unmetered),
       existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
     );
@@ -120,6 +123,14 @@ Future<void> _runBackgroundSend() async {
           modifiedTime: item.modifiedAt.millisecondsSinceEpoch,
           relativePath: item.relativePath,
         );
+        // 履歴に残す（アプリを開いたとき何が自動送信されたか分かるように）。
+        await SentStore.log(
+          assetId: item.id,
+          title: item.title,
+          relativePath: item.relativePath,
+          status: 'sent',
+          size: size,
+        );
       } else if (res.insufficientStorage) {
         stoppedForStorage = true;
         await AppSettings.setLastSendError(
@@ -131,6 +142,14 @@ Future<void> _runBackgroundSend() async {
         break;
       } else {
         failed++;
+        await SentStore.log(
+          assetId: item.id,
+          title: item.title,
+          relativePath: item.relativePath,
+          status: 'failed',
+          detail: res.error,
+          size: size,
+        );
       }
     } catch (_) {
       failed++;
@@ -168,10 +187,15 @@ Future<void> _showBgNotification(
     await plugin.initialize(const InitializationSettings(
       android: AndroidInitializationSettings('@mipmap/ic_launcher'),
     ));
+    final isJa = PlatformDispatcher.instance.locale.languageCode == 'ja';
+    final title = isJa ? '$destName に自動送信' : 'Auto-sent to $destName';
+    final body = isJa
+        ? '送信 $done件 / 失敗 $failed件'
+        : 'Sent: $done / Failed: $failed';
     await plugin.show(
       3,
-      'MediaRelay',
-      '送信完了: $done件 / 失敗: $failed件 → $destName',
+      title,
+      body,
       const NotificationDetails(
         android: AndroidNotificationDetails(
           'send_result',

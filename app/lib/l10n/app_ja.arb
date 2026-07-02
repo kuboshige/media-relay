@@ -31,6 +31,9 @@
   "btnClose": "閉じる",
   "@btnClose": { "description": "Close button" },
 
+  "btnContinue": "続ける",
+  "@btnContinue": { "description": "Continue button" },
+
   "btnDelete": "削除",
   "@btnDelete": { "description": "Delete button" },
 
@@ -375,6 +378,15 @@
   "@statusBarUnsent": {
     "description": "Status bar showing unsent count",
     "placeholders": { "count": { "type": "int" } }
+  },
+
+  "lastSyncNever": "送信履歴なし",
+  "@lastSyncNever": { "description": "Status bar: no send has happened yet" },
+
+  "lastSyncAt": "最後の送信 {time}",
+  "@lastSyncAt": {
+    "description": "Status bar: last send time",
+    "placeholders": { "time": { "type": "String" } }
   },
 
   "fabSend": "送信 ({count})",
@@ -895,11 +907,20 @@
   "wifiAutoSendHowToFind": "Wi-Fi名の調べ方: スマホの「設定 → Wi-Fi（またはネットワーク）」を開き、チェックマーク（✓）がついているネットワーク名を上の欄に入力してください",
   "@wifiAutoSendHowToFind": { "description": "Manual instructions for finding Wi-Fi name" },
 
-  "wifiAutoSendDeleteLabel": "Wi-Fi自動送信後に削除",
-  "@wifiAutoSendDeleteLabel": { "description": "Toggle label for auto-delete after Wi-Fi send" },
+  "wifiAutoSendReceiverWarnTitle": "受信側（Pixel）の準備を確認",
+  "@wifiAutoSendReceiverWarnTitle": { "description": "Title of receiver setup warning dialog" },
 
-  "wifiAutoSendDeleteSubtitle": "送信済みファイルをこの端末から削除します（バックグラウンド送信時は削除しません）",
-  "@wifiAutoSendDeleteSubtitle": { "description": "Subtitle for auto-delete toggle" },
+  "wifiAutoSendReceiverWarnBody": "自動送信が届くには、受信側のPixelがずっと受信待ちになっている必要があります。次を設定しておいてください。\n\n① Pixelのアプリで「受信」タブを開き「開始」を押しておく\n② Pixelを充電ケーブルに挿しておく（充電中は自動停止しません）\n③ Pixelで「設定 → 情報 → バックグラウンド動作の改善」から電池最適化の対象外にする\n\nこれらをしていないと、受信サーバーが途中で止まり、送っても届かないことがあります。",
+  "@wifiAutoSendReceiverWarnBody": { "description": "Body of receiver setup warning dialog" },
+
+  "wifiAutoSendLocationRationaleTitle": "位置情報の許可について",
+  "@wifiAutoSendLocationRationaleTitle": { "description": "Title of location permission rationale dialog" },
+
+  "wifiAutoSendLocationRationaleBody": "接続中のWi-Fi名を読み取るために、Androdの仕様で「位置情報」の許可が必要です。\n\nWi-Fi名から場所が推定できるため、OSが位置情報の権限とひも付けているだけで、このアプリが位置情報を取得・送信することはありません。\n\n許可したくない場合は、この画面でWi-Fi名を手入力すれば自動送信は使えます。",
+  "@wifiAutoSendLocationRationaleBody": { "description": "Body of location permission rationale dialog" },
+
+  "receiverChargingNoStop": "充電中のため自動停止しません",
+  "@receiverChargingNoStop": { "description": "Hint shown on receiver while charging" },
 
   "notifyOnSendResultLabel": "送信完了通知",
   "@notifyOnSendResultLabel": { "description": "Toggle label for send result notification" },

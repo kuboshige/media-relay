@@ -30,4 +30,13 @@ class ReceiverService {
       await _ch.invokeMethod('requestIgnoreBatteryOptimization');
     } catch (_) {}
   }
+
+  /// 端末が充電中か。取得できなければ false。
+  static Future<bool> isCharging() async {
+    try {
+      return await _ch.invokeMethod<bool>('isCharging') ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
 }

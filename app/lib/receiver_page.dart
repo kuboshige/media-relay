@@ -35,6 +35,7 @@ class _ReceiverPageState extends State<ReceiverPage> {
   String _deviceName = '';
   int _autoStopMinutes = AppSettings.defaultAutoStopMinutes;
   DateTime? _serverStartedAt;
+  bool _charging = false;
 
   @override
   void initState() {
@@ -106,8 +107,11 @@ class _ReceiverPageState extends State<ReceiverPage> {
           if (!mounted) return;
           setState(() => _autoStopMinutes = newAutoStop);
         }
+        // 充電中は自動停止しない（帰宅まで受信待ち受けを維持するため）。
+        final charging = await ReceiverService.isCharging();
         if (!mounted) return;
-        if (_autoStopMinutes > 0 && _server != null) {
+        if (charging != _charging) setState(() => _charging = charging);
+        if (_autoStopMinutes > 0 && !_charging && _server != null) {
           final last = _server!.lastReceivedAt ?? _serverStartedAt;
           if (last != null &&
               DateTime.now().difference(last).inMinutes >= _autoStopMinutes) {
@@ -219,7 +223,8 @@ class _ReceiverPageState extends State<ReceiverPage> {
   String? get _qrIp => _visibleIps.isEmpty ? null : _visibleIps.first.ip;
 
   String? _autoStopCountdown(AppLocalizations l10n) {
-    if (_autoStopMinutes <= 0 || _server == null) return null;
+    // 充電中は自動停止しないのでカウントダウンも表示しない。
+    if (_autoStopMinutes <= 0 || _server == null || _charging) return null;
     final last = _server!.lastReceivedAt ?? _serverStartedAt;
     if (last == null) return null;
     final elapsed = DateTime.now().difference(last);
@@ -485,6 +490,21 @@ class _ReceiverPageState extends State<ReceiverPage> {
                       const SizedBox(width: 6),
                       Text(countdown,
                           style: const TextStyle(color: Colors.orange)),
+                    ],
+                  ),
+                ),
+              if (_charging && _autoStopMinutes > 0)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.bolt,
+                          size: 16, color: Colors.green),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(l10n.receiverChargingNoStop,
+                            style: const TextStyle(color: Colors.green)),
+                      ),
                     ],
                   ),
                 ),

@@ -28,7 +28,6 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _notifyOnSendResult = true;
   bool _reminderSendNow = true;
   bool _wifiAutoSendEnabled = false;
-  bool _wifiAutoSendDelete = false;
   String _wifiAutoSendSsid = '';
   String? _currentSsid;
   final TextEditingController _ssidCtrl = TextEditingController();
@@ -50,7 +49,6 @@ class _SettingsPageState extends State<SettingsPage> {
     _notifyOnSendResult = await AppSettings.notifyOnSendResult();
     _reminderSendNow = await AppSettings.reminderSendNow();
     _wifiAutoSendEnabled = await AppSettings.wifiAutoSendEnabled();
-    _wifiAutoSendDelete = await AppSettings.wifiAutoSendDelete();
     _wifiAutoSendSsid = (await AppSettings.wifiAutoSendSsid()) ?? '';
     _ssidCtrl.text = _wifiAutoSendSsid;
     _currentSsid = await WifiMonitor.getCurrentSsid();
@@ -210,6 +208,51 @@ class _SettingsPageState extends State<SettingsPage> {
     return l10n.wifiAutoSendStatusSsid(_wifiAutoSendSsid);
   }
 
+  /// Wi-Fi 自動送信をオンにしたとき、受信側（Pixel）の準備が必要なことを案内する。
+  /// これをしないと受信サーバーが途中で止まり、送っても届かない。
+  Future<void> _showReceiverSetupWarning(AppLocalizations l10n) async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(l10n.wifiAutoSendReceiverWarnTitle),
+        content: SingleChildScrollView(
+          child: Text(l10n.wifiAutoSendReceiverWarnBody),
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(l10n.btnClose),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 位置情報の許可を求める前に、なぜ必要かを説明する。
+  /// 許可して進んでよいなら true を返す。
+  Future<bool> _confirmLocationRationale(AppLocalizations l10n) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(l10n.wifiAutoSendLocationRationaleTitle),
+        content: SingleChildScrollView(
+          child: Text(l10n.wifiAutoSendLocationRationaleBody),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(l10n.btnCancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(l10n.btnContinue),
+          ),
+        ],
+      ),
+    );
+    return ok == true;
+  }
+
   Widget _wifiSsidTile(AppLocalizations l10n) {
     final subtleStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
           color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -229,7 +272,8 @@ class _SettingsPageState extends State<SettingsPage> {
               isDense: true,
               border: const OutlineInputBorder(),
             ),
-            onSubmitted: (v) async {
+            // 入力の都度保存する（確定キーを押さずに戻っても消えないように）。
+            onChanged: (v) async {
               await AppSettings.setWifiAutoSendSsid(v.trim());
               setState(() => _wifiAutoSendSsid = v.trim());
             },
@@ -247,6 +291,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 onPressed: () async {
                   var status = await Permission.locationWhenInUse.status;
                   if (!status.isGranted) {
+                    // OSの権限ダイアログの前に、なぜ位置情報が要るのか説明する。
+                    if (!await _confirmLocationRationale(l10n)) return;
                     status = await Permission.locationWhenInUse.request();
                   }
                   if (!status.isGranted) {
@@ -540,21 +586,11 @@ class _SettingsPageState extends State<SettingsPage> {
               if (v) _currentSsid = await WifiMonitor.getCurrentSsid();
               setState(() => _wifiAutoSendEnabled = v);
               try { await scheduleBgSendIfEnabled(); } catch (_) {}
+              // オンにした直後、受信側の準備が必要なことを案内する。
+              if (v && mounted) await _showReceiverSetupWarning(l10n);
             },
           ),
-          if (_wifiAutoSendEnabled) ...[
-            _wifiSsidTile(l10n),
-            SwitchListTile(
-              secondary: const Icon(Icons.delete_forever_outlined),
-              title: Text(l10n.wifiAutoSendDeleteLabel),
-              subtitle: Text(l10n.wifiAutoSendDeleteSubtitle),
-              value: _wifiAutoSendDelete,
-              onChanged: (v) async {
-                await AppSettings.setWifiAutoSendDelete(v);
-                setState(() => _wifiAutoSendDelete = v);
-              },
-            ),
-          ],
+          if (_wifiAutoSendEnabled) _wifiSsidTile(l10n),
           const Divider(height: 1),
 
           // ━━━━ About ━━━━
