@@ -34,7 +34,7 @@ Future<void> scheduleBgSendIfEnabled() async {
       kBgSendTask,
       frequency: const Duration(hours: 1),
       constraints: Constraints(networkType: NetworkType.unmetered),
-      existingWorkPolicy: ExistingWorkPolicy.keep,
+      existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
     );
   } else {
     await Workmanager().cancelByUniqueName(kBgSendUniqueKey);
