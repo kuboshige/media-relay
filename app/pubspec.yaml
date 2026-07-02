@@ -70,7 +70,7 @@ dependencies:
   # 設定画面・電池最適化ダイアログからブラウザを開く（dontkillmyapp.com 等）
   url_launcher: ^6.3.0
   # バックグラウンド定期送信（Wi-Fi接続時・再起動後も有効）
-  workmanager: ^0.5.7
+  workmanager: ^0.9.0
   # Wi-Fi SSID 読み取りに必要な位置情報権限のリクエスト
   permission_handler: ^11.3.1
 
