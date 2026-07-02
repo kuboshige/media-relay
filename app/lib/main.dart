@@ -24,10 +24,20 @@ import 'notif_service.dart';
 import 'receiver_page.dart';
 import 'wifi_monitor.dart';
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  await Workmanager().initialize(callbackDispatcher);
+  // 先にUIを起動する。WorkManager 初期化で起動をブロック/クラッシュさせない。
   runApp(const MediaRelayApp());
+  _initBackgroundTasks();
+}
+
+/// バックグラウンド送信(WorkManager)の初期化。
+/// 起動をブロックせず、失敗してもアプリを落とさない（ベストエフォート）。
+Future<void> _initBackgroundTasks() async {
+  try {
+    await Workmanager().initialize(callbackDispatcher);
+    await scheduleBgSendIfEnabled();
+  } catch (_) {}
 }
 
 class MediaRelayApp extends StatelessWidget {
@@ -182,8 +192,6 @@ class _HomePageState extends State<HomePage> {
       await NotifService.reschedule();
     } catch (_) {}
     _refreshFreeSpace();
-
-    try { await scheduleBgSendIfEnabled(); } catch (_) {}
 
     final startupAction = await AppSettings.startupAction();
     if (startupAction != AppSettings.startupActionNone && mounted) {
