@@ -126,7 +126,7 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   bool _loading = true;
   bool _permissionDenied = false;
   List<MediaItem> _all = [];
@@ -152,6 +152,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _notifSendNowSub =
         NotifService.sendNowEvents.listen((_) => _sendFromNotification());
     _wifiSub = WifiMonitor.events.listen(_onWifiEvent);
@@ -160,9 +161,28 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _notifSendNowSub?.cancel();
     _wifiSub?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // 帰宅してアプリを前面に戻したときに、Wi-Fi接続を再チェックして自動送信する。
+    // ブロードキャストイベントに依存しない確実なトリガー。
+    if (state == AppLifecycleState.resumed) {
+      _maybeWifiAutoSendOnResume();
+    }
+  }
+
+  Future<void> _maybeWifiAutoSendOnResume() async {
+    if (_loading || _status != null) return;
+    final enabled = await AppSettings.wifiAutoSendEnabled();
+    if (!enabled) return;
+    final ssid = await WifiMonitor.getCurrentSsid();
+    if (!mounted) return;
+    _onWifiEvent(WifiEvent(connected: true, ssid: ssid));
   }
 
   Future<void> _init() async {
@@ -386,28 +406,34 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
-    final targetSsid = await AppSettings.wifiAutoSendSsid();
-    final ssid = e.ssid;
+    // イベント経由の SSID が取れない端末があるため、null なら現在SSIDで補完する
+    // （getCurrentSsid は WifiManager フォールバックを持ち、こちらは読める端末が多い）。
+    var ssid = e.ssid;
+    ssid ??= await WifiMonitor.getCurrentSsid();
+    if (!mounted) return;
 
-    if (targetSsid != null) {
-      // Wi-Fi 名を読み取れた場合：一致しなければスキップ
-      if (ssid != null && ssid != targetSsid) return;
-      // 対象 Wi-Fi 名は指定済みだが読み取れない場合：誤送信を避けるためスキップ
-      if (ssid == null) return;
-    }
+    final targetSsid = await AppSettings.wifiAutoSendSsid();
+    // 別のWi-Fiだと「判明した」場合のみスキップ。
+    // 対象指定ありでSSIDがどうしても読めない場合は、送信先が自宅LANの固定IPで
+    // ping が通らなければ何も起きないため、試行に任せる（pingでゲートされる）。
+    if (targetSsid != null && ssid != null && ssid != targetSsid) return;
+
+    // 送信条件が整っていない（ロード中/送信中）なら、キーを立てずに戻る。
+    // ここでキーを立てると、後続の本来の発火が「重複」で消えてしまう（起動直後の不具合）。
+    if (_status != null || _loading) return;
 
     // 同一接続で連続送信しない。切断（上でリセット）→再接続で再度送信できる。
-    final key = ssid ?? '__any__';
+    final key = ssid ?? '__wifi__';
     if (_lastWifiAutoSendKey == key) return;
-    _lastWifiAutoSendKey = key;
 
-    if (_status != null || _loading) return;
     final targets = _all
         .where((m) => !_sentIds.contains(m.id))
         .toList()
         .reversed
         .toList();
     if (targets.isEmpty) return;
+
+    _lastWifiAutoSendKey = key;
     await _send(targets, silent: true);
   }
 
