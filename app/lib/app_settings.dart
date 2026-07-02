@@ -16,6 +16,7 @@ class AppSettings {
   static const _kReminderSendNow = 'reminderSendNow';
   static const _kWifiAutoSendEnabled = 'wifiAutoSendEnabled';
   static const _kWifiAutoSendSsid = 'wifiAutoSendSsid';
+  static const _kWifiAutoSendDelete = 'wifiAutoSendDelete';
 
   static const String startupActionNone = 'none';
   static const String startupActionSend = 'send';
@@ -180,6 +181,17 @@ class AppSettings {
   static Future<void> setWifiAutoSendSsid(String ssid) async {
     final p = await SharedPreferences.getInstance();
     await p.setString(_kWifiAutoSendSsid, ssid);
+  }
+
+  /// Wi-Fi自動送信後にファイルを自動削除するか（既定 OFF）。
+  static Future<bool> wifiAutoSendDelete() async {
+    final p = await SharedPreferences.getInstance();
+    return p.getBool(_kWifiAutoSendDelete) ?? false;
+  }
+
+  static Future<void> setWifiAutoSendDelete(bool v) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_kWifiAutoSendDelete, v);
   }
 
   /// 最後に送信した時刻（ms）。未記録なら null。

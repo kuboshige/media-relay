@@ -6,8 +6,10 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:media_relay/gen_l10n/app_localizations.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+import 'package:workmanager/workmanager.dart';
 import 'dart:async';
 import 'app_settings.dart';
+import 'background_send.dart';
 import 'media_source.dart';
 import 'server_config.dart';
 import 'uploader.dart';
@@ -22,8 +24,9 @@ import 'notif_service.dart';
 import 'receiver_page.dart';
 import 'wifi_monitor.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Workmanager().initialize(callbackDispatcher);
   runApp(const MediaRelayApp());
 }
 
@@ -176,6 +179,8 @@ class _HomePageState extends State<HomePage> {
       await NotifService.reschedule();
     } catch (_) {}
     _refreshFreeSpace();
+
+    try { await scheduleBgSendIfEnabled(); } catch (_) {}
 
     final startupAction = await AppSettings.startupAction();
     if (startupAction != AppSettings.startupActionNone && mounted) {
@@ -383,6 +388,18 @@ class _HomePageState extends State<HomePage> {
         .toList();
     if (targets.isEmpty) return;
     await _send(targets);
+
+    if (!mounted) return;
+    final deleteEnabled = await AppSettings.wifiAutoSendDelete();
+    if (deleteEnabled) {
+      final sentItems = _lastOps
+          .where((o) => o.status == FileOpStatus.sent)
+          .map((o) => o.item)
+          .toList();
+      if (sentItems.isNotEmpty) {
+        await _deleteFromDevice(sentItems, skipConfirmation: true);
+      }
+    }
   }
 
   Future<void> _sendAllUnsent() async {

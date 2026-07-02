@@ -886,11 +886,17 @@
     "placeholders": { "ssid": { "type": "String" } }
   },
 
-  "wifiAutoSendCurrentSsidNone": "Wi-Fi未接続（またはSSID取得不可）",
+  "wifiAutoSendCurrentSsidNone": "Wi-Fi未接続またはSSID取得不可（「このSSIDを使用」で位置情報を許可してください）",
   "@wifiAutoSendCurrentSsidNone": { "description": "No Wi-Fi or SSID unreadable" },
 
   "wifiAutoSendUseCurrent": "このSSIDを使用",
   "@wifiAutoSendUseCurrent": { "description": "Button to use current SSID" },
+
+  "wifiAutoSendDeleteLabel": "Wi-Fi自動送信後に削除",
+  "@wifiAutoSendDeleteLabel": { "description": "Toggle label for auto-delete after Wi-Fi send" },
+
+  "wifiAutoSendDeleteSubtitle": "送信済みファイルをこの端末から削除します（バックグラウンド送信時は削除しません）",
+  "@wifiAutoSendDeleteSubtitle": { "description": "Subtitle for auto-delete toggle" },
 
   "notifyOnSendResultLabel": "送信完了通知",
   "@notifyOnSendResultLabel": { "description": "Toggle label for send result notification" },

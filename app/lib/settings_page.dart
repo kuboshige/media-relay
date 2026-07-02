@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:media_relay/gen_l10n/app_localizations.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'server_config.dart';
-import 'uploader.dart';
 import 'app_settings.dart';
+import 'background_send.dart';
 import 'notif_service.dart';
 import 'qr_scan_page.dart';
+import 'server_config.dart';
+import 'uploader.dart';
 import 'wifi_monitor.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -26,6 +28,7 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _notifyOnSendResult = true;
   bool _reminderSendNow = true;
   bool _wifiAutoSendEnabled = false;
+  bool _wifiAutoSendDelete = false;
   String _wifiAutoSendSsid = '';
   String? _currentSsid;
   final TextEditingController _ssidCtrl = TextEditingController();
@@ -47,6 +50,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _notifyOnSendResult = await AppSettings.notifyOnSendResult();
     _reminderSendNow = await AppSettings.reminderSendNow();
     _wifiAutoSendEnabled = await AppSettings.wifiAutoSendEnabled();
+    _wifiAutoSendDelete = await AppSettings.wifiAutoSendDelete();
     _wifiAutoSendSsid = (await AppSettings.wifiAutoSendSsid()) ?? '';
     _ssidCtrl.text = _wifiAutoSendSsid;
     _currentSsid = await WifiMonitor.getCurrentSsid();
@@ -231,17 +235,38 @@ class _SettingsPageState extends State<SettingsPage> {
                   },
                 ),
               ),
-              if (_currentSsid != null) ...[
-                const SizedBox(width: 8),
-                OutlinedButton(
-                  onPressed: () async {
-                    await AppSettings.setWifiAutoSendSsid(_currentSsid!);
-                    _ssidCtrl.text = _currentSsid!;
-                    setState(() => _wifiAutoSendSsid = _currentSsid!);
-                  },
-                  child: Text(l10n.wifiAutoSendUseCurrent),
-                ),
-              ],
+              const SizedBox(width: 8),
+              OutlinedButton(
+                onPressed: () async {
+                  var status = await Permission.locationWhenInUse.status;
+                  if (!status.isGranted) {
+                    status = await Permission.locationWhenInUse.request();
+                  }
+                  if (!status.isGranted) {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(l10n.wifiAutoSendCurrentSsidNone)),
+                    );
+                    return;
+                  }
+                  final ssid = await WifiMonitor.getCurrentSsid();
+                  if (ssid == null) {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(l10n.wifiAutoSendCurrentSsidNone)),
+                    );
+                    return;
+                  }
+                  await AppSettings.setWifiAutoSendSsid(ssid);
+                  _ssidCtrl.text = ssid;
+                  if (!mounted) return;
+                  setState(() {
+                    _currentSsid = ssid;
+                    _wifiAutoSendSsid = ssid;
+                  });
+                },
+                child: Text(l10n.wifiAutoSendUseCurrent),
+              ),
             ],
           ),
           const SizedBox(height: 6),
@@ -493,9 +518,22 @@ class _SettingsPageState extends State<SettingsPage> {
               await AppSettings.setWifiAutoSendEnabled(v);
               if (v) _currentSsid = await WifiMonitor.getCurrentSsid();
               setState(() => _wifiAutoSendEnabled = v);
+              try { await scheduleBgSendIfEnabled(); } catch (_) {}
             },
           ),
-          if (_wifiAutoSendEnabled) _wifiSsidTile(l10n),
+          if (_wifiAutoSendEnabled) ...[
+            _wifiSsidTile(l10n),
+            SwitchListTile(
+              secondary: const Icon(Icons.delete_forever_outlined),
+              title: Text(l10n.wifiAutoSendDeleteLabel),
+              subtitle: Text(l10n.wifiAutoSendDeleteSubtitle),
+              value: _wifiAutoSendDelete,
+              onChanged: (v) async {
+                await AppSettings.setWifiAutoSendDelete(v);
+                setState(() => _wifiAutoSendDelete = v);
+              },
+            ),
+          ],
           const Divider(height: 1),
 
           // ━━━━ About ━━━━

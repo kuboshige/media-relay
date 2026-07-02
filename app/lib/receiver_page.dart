@@ -99,7 +99,13 @@ class _ReceiverPageState extends State<ReceiverPage> {
       await WakelockPlus.enable();
       _serverStartedAt = DateTime.now();
       _refresh?.cancel();
-      _refresh = Timer.periodic(const Duration(seconds: 1), (_) {
+      _refresh = Timer.periodic(const Duration(seconds: 1), (_) async {
+        if (!mounted) return;
+        final newAutoStop = await AppSettings.receiverAutoStopMinutes();
+        if (newAutoStop != _autoStopMinutes) {
+          if (!mounted) return;
+          setState(() => _autoStopMinutes = newAutoStop);
+        }
         if (!mounted) return;
         if (_autoStopMinutes > 0 && _server != null) {
           final last = _server!.lastReceivedAt ?? _serverStartedAt;
@@ -109,7 +115,7 @@ class _ReceiverPageState extends State<ReceiverPage> {
             return;
           }
         }
-        setState(() {});
+        if (mounted) setState(() {});
       });
       await ReceiverService.start();
       setState(() {
