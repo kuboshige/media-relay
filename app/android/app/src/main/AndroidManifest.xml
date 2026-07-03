@@ -63,6 +63,11 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- 通知の小アイコンをマニフェストから参照し、リソース圧縮で削除されない
+             ようにする（Dart から文字列参照のみだと未使用と誤判定されるため）。 -->
+        <meta-data
+            android:name="com.kuboshige.media_relay.notification_icon"
+            android:resource="@drawable/ic_stat_mediarelay" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

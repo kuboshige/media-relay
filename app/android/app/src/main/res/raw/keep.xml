@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- リリースビルドのリソース圧縮(shrinkResources)対策。
+     通知アイコンは Dart から文字列(@drawable/ic_stat_mediarelay)でしか
+     参照しないため「未使用」と誤判定され削除される。これを明示的に保持する。 -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/ic_stat_mediarelay" />
