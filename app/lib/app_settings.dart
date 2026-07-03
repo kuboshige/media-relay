@@ -12,10 +12,12 @@ class AppSettings {
   static const _kStartupAction = 'startupAction';
   static const _kReceiverToken = 'receiverToken';
   static const _kLastSendError = 'lastSendErrorJson';
-  static const _kNotifyOnSendResult = 'notifyOnSendResult';
+  static const _kNotifyOnSuccess = 'notifyOnSuccess';
+  static const _kNotifyOnFailure = 'notifyOnFailure';
   static const _kReminderSendNow = 'reminderSendNow';
   static const _kWifiAutoSendEnabled = 'wifiAutoSendEnabled';
   static const _kWifiAutoSendSsid = 'wifiAutoSendSsid';
+  static const _kBgIntervalMinutes = 'bgIntervalMinutes';
 
   static const String startupActionNone = 'none';
   static const String startupActionSend = 'send';
@@ -137,15 +139,40 @@ class AppSettings {
     await p.remove(_kLastSendError);
   }
 
-  /// 送信完了後に通知で結果を表示するか（既定 ON）。
-  static Future<bool> notifyOnSendResult() async {
+  /// 送信成功を通知するか（既定 ON）。「◯件送信しました」。
+  static Future<bool> notifyOnSuccess() async {
     final p = await SharedPreferences.getInstance();
-    return p.getBool(_kNotifyOnSendResult) ?? true;
+    return p.getBool(_kNotifyOnSuccess) ?? true;
   }
 
-  static Future<void> setNotifyOnSendResult(bool v) async {
+  static Future<void> setNotifyOnSuccess(bool v) async {
     final p = await SharedPreferences.getInstance();
-    await p.setBool(_kNotifyOnSendResult, v);
+    await p.setBool(_kNotifyOnSuccess, v);
+  }
+
+  /// 送信失敗を通知するか（既定 ON）。失敗理由を表示する。
+  static Future<bool> notifyOnFailure() async {
+    final p = await SharedPreferences.getInstance();
+    return p.getBool(_kNotifyOnFailure) ?? true;
+  }
+
+  static Future<void> setNotifyOnFailure(bool v) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_kNotifyOnFailure, v);
+  }
+
+  /// バックグラウンド定期送信の間隔（分）。WorkManager の最短は15分。
+  static const int defaultBgIntervalMinutes = 180; // 3時間
+  static const List<int> bgIntervalChoices = [15, 60, 180, 360];
+
+  static Future<int> bgIntervalMinutes() async {
+    final p = await SharedPreferences.getInstance();
+    return p.getInt(_kBgIntervalMinutes) ?? defaultBgIntervalMinutes;
+  }
+
+  static Future<void> setBgIntervalMinutes(int v) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setInt(_kBgIntervalMinutes, v);
   }
 
   /// リマインダー通知に「今すぐ送信」ボタンを表示するか（既定 ON）。

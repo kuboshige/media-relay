@@ -25,9 +25,11 @@ class _SettingsPageState extends State<SettingsPage> {
   String _deviceName = '';
   int _receiverPort = AppSettings.defaultReceiverPort;
   int _autoStopMinutes = AppSettings.defaultAutoStopMinutes;
-  bool _notifyOnSendResult = true;
+  bool _notifyOnSuccess = true;
+  bool _notifyOnFailure = true;
   bool _reminderSendNow = true;
   bool _wifiAutoSendEnabled = false;
+  int _bgIntervalMinutes = AppSettings.defaultBgIntervalMinutes;
   String _wifiAutoSendSsid = '';
   String? _currentSsid;
   final TextEditingController _ssidCtrl = TextEditingController();
@@ -46,9 +48,11 @@ class _SettingsPageState extends State<SettingsPage> {
     _deviceName = await AppSettings.deviceName();
     _receiverPort = await AppSettings.receiverPort();
     _autoStopMinutes = await AppSettings.receiverAutoStopMinutes();
-    _notifyOnSendResult = await AppSettings.notifyOnSendResult();
+    _notifyOnSuccess = await AppSettings.notifyOnSuccess();
+    _notifyOnFailure = await AppSettings.notifyOnFailure();
     _reminderSendNow = await AppSettings.reminderSendNow();
     _wifiAutoSendEnabled = await AppSettings.wifiAutoSendEnabled();
+    _bgIntervalMinutes = await AppSettings.bgIntervalMinutes();
     _wifiAutoSendSsid = (await AppSettings.wifiAutoSendSsid()) ?? '';
     _ssidCtrl.text = _wifiAutoSendSsid;
     _currentSsid = await WifiMonitor.getCurrentSsid();
@@ -200,6 +204,9 @@ class _SettingsPageState extends State<SettingsPage> {
           ],
         ),
       );
+
+  String _bgIntervalLabel(int minutes, AppLocalizations l10n) =>
+      minutes < 60 ? l10n.intervalMinutes(minutes) : l10n.intervalHours(minutes ~/ 60);
 
   String _wifiAutoSendStatusText(AppLocalizations l10n) {
     if (!_wifiAutoSendEnabled) return '';
@@ -564,12 +571,22 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           SwitchListTile(
             secondary: const Icon(Icons.check_circle_outline),
-            title: Text(l10n.notifyOnSendResultLabel),
-            subtitle: Text(l10n.notifyOnSendResultSubtitle),
-            value: _notifyOnSendResult,
+            title: Text(l10n.notifyOnSuccessLabel),
+            subtitle: Text(l10n.notifyOnSuccessSubtitle),
+            value: _notifyOnSuccess,
             onChanged: (v) async {
-              await AppSettings.setNotifyOnSendResult(v);
-              setState(() => _notifyOnSendResult = v);
+              await AppSettings.setNotifyOnSuccess(v);
+              setState(() => _notifyOnSuccess = v);
+            },
+          ),
+          SwitchListTile(
+            secondary: const Icon(Icons.error_outline),
+            title: Text(l10n.notifyOnFailureLabel),
+            subtitle: Text(l10n.notifyOnFailureSubtitle),
+            value: _notifyOnFailure,
+            onChanged: (v) async {
+              await AppSettings.setNotifyOnFailure(v);
+              setState(() => _notifyOnFailure = v);
             },
           ),
           const Divider(height: 1),
@@ -585,12 +602,35 @@ class _SettingsPageState extends State<SettingsPage> {
               await AppSettings.setWifiAutoSendEnabled(v);
               if (v) _currentSsid = await WifiMonitor.getCurrentSsid();
               setState(() => _wifiAutoSendEnabled = v);
-              try { await scheduleBgSendIfEnabled(); } catch (_) {}
+              try { await scheduleBgSendIfEnabled(forceReschedule: true); } catch (_) {}
               // オンにした直後、受信側の準備が必要なことを案内する。
               if (v && mounted) await _showReceiverSetupWarning(l10n);
             },
           ),
-          if (_wifiAutoSendEnabled) _wifiSsidTile(l10n),
+          if (_wifiAutoSendEnabled) ...[
+            _wifiSsidTile(l10n),
+            ListTile(
+              leading: const Icon(Icons.timelapse),
+              title: Text(l10n.bgIntervalLabel),
+              subtitle: Text(l10n.bgIntervalSubtitle),
+              trailing: DropdownButton<int>(
+                value: _bgIntervalMinutes,
+                onChanged: (v) async {
+                  if (v == null) return;
+                  await AppSettings.setBgIntervalMinutes(v);
+                  setState(() => _bgIntervalMinutes = v);
+                  try {
+                    await scheduleBgSendIfEnabled(forceReschedule: true);
+                  } catch (_) {}
+                },
+                items: [
+                  for (final m in AppSettings.bgIntervalChoices)
+                    DropdownMenuItem(
+                        value: m, child: Text(_bgIntervalLabel(m, l10n))),
+                ],
+              ),
+            ),
+          ],
           const Divider(height: 1),
 
           // ━━━━ About ━━━━

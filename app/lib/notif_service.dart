@@ -25,6 +25,7 @@ class NotifService {
       FlutterLocalNotificationsPlugin();
   static const int _reminderId = 1001;
   static const int _sendResultId = 1002;
+  static const int _sendFailId = 1003;
   static bool _inited = false;
 
   static final _sendNowCtrl = StreamController<void>.broadcast();
@@ -143,22 +144,36 @@ class NotifService {
     await reschedule();
   }
 
-  /// 送信完了を通知で知らせる（設定 OFF のときは何もしない）。
+  /// 送信結果を通知で知らせる。成功通知・失敗通知は設定で個別にオン/オフできる。
+  /// [failureReason] は失敗時の理由（null なら件数から生成）。
   static Future<void> showSendResult({
     required int done,
     required int skipped,
     required int failed,
     required String destName,
+    String? failureReason,
   }) async {
     if (done == 0 && skipped == 0 && failed == 0) return;
-    final enabled = await AppSettings.notifyOnSendResult();
-    if (!enabled) return;
     await init();
     final isJa = PlatformDispatcher.instance.locale.languageCode == 'ja';
-    final title = isJa ? '$destName に送信完了' : 'Sent to $destName';
-    final body = isJa
-        ? '$done件送信 / $skipped件スキップ / $failed件失敗'
-        : 'Sent: $done / Skipped: $skipped / Failed: $failed';
-    await _plugin.show(_sendResultId, title, body, _sendResultDetails);
+
+    // 失敗通知
+    if (failed > 0 && await AppSettings.notifyOnFailure()) {
+      final title = isJa ? '送信に失敗しました' : 'Send failed';
+      final body = failureReason ??
+          (isJa
+              ? '$destName へ $failed 件送信できませんでした'
+              : 'Failed to send $failed file(s) to $destName');
+      await _plugin.show(_sendFailId, title, body, _sendResultDetails);
+    }
+
+    // 成功通知
+    if ((done > 0 || skipped > 0) && await AppSettings.notifyOnSuccess()) {
+      final title = isJa ? '$destName に送信しました' : 'Sent to $destName';
+      final body = isJa
+          ? '$done 件送信${skipped > 0 ? ' / $skipped 件スキップ' : ''}'
+          : 'Sent $done${skipped > 0 ? ' / Skipped $skipped' : ''}';
+      await _plugin.show(_sendResultId, title, body, _sendResultDetails);
+    }
   }
 }

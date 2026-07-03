@@ -922,11 +922,35 @@
   "receiverChargingNoStop": "充電中のため自動停止しません",
   "@receiverChargingNoStop": { "description": "Hint shown on receiver while charging" },
 
-  "notifyOnSendResultLabel": "送信完了通知",
-  "@notifyOnSendResultLabel": { "description": "Toggle label for send result notification" },
+  "notifyOnSuccessLabel": "送信成功の通知",
+  "@notifyOnSuccessLabel": { "description": "Toggle label for success notification" },
 
-  "notifyOnSendResultSubtitle": "送信完了後に通知で結果を表示",
-  "@notifyOnSendResultSubtitle": { "description": "Subtitle for send result notification toggle" },
+  "notifyOnSuccessSubtitle": "送信できたときに「◯件送信しました」と通知",
+  "@notifyOnSuccessSubtitle": { "description": "Subtitle for success notification toggle" },
+
+  "notifyOnFailureLabel": "送信失敗の通知",
+  "@notifyOnFailureLabel": { "description": "Toggle label for failure notification" },
+
+  "notifyOnFailureSubtitle": "送信できなかったときに理由を通知",
+  "@notifyOnFailureSubtitle": { "description": "Subtitle for failure notification toggle" },
+
+  "bgIntervalLabel": "バックグラウンド確認の間隔",
+  "@bgIntervalLabel": { "description": "Background check interval tile title" },
+
+  "bgIntervalSubtitle": "アプリを開かなくても、この間隔でWi-Fiを確認し、繋がっていれば自動送信します（端末の省電力設定により遅れることがあります）",
+  "@bgIntervalSubtitle": { "description": "Background check interval subtitle" },
+
+  "intervalMinutes": "{minutes}分ごと",
+  "@intervalMinutes": {
+    "description": "Interval in minutes",
+    "placeholders": { "minutes": { "type": "int" } }
+  },
+
+  "intervalHours": "{hours}時間ごと",
+  "@intervalHours": {
+    "description": "Interval in hours",
+    "placeholders": { "hours": { "type": "int" } }
+  },
 
   "reminderActionLabel": "リマインダーに「今すぐ送信」ボタン",
   "@reminderActionLabel": { "description": "Toggle label for reminder action button" },
