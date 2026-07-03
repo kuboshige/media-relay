@@ -229,6 +229,24 @@ class _SettingsPageState extends State<SettingsPage> {
     if (mounted) setState(() => _notifEnabled = enabled);
   }
 
+  /// テスト通知を送る。例外を握りつぶさず、結果や失敗理由をその場に表示する。
+  /// 「通知が一度も来ない」原因を切り分けるための診断ボタン。
+  Future<void> _testNotification() async {
+    final l10n = AppLocalizations.of(context)!;
+    final messenger = ScaffoldMessenger.of(context);
+    String msg;
+    try {
+      final enabled = await NotifService.showTest();
+      msg = enabled ? l10n.notifTestSent : l10n.notifTestDisabled;
+      if (mounted) setState(() => _notifEnabled = enabled);
+    } catch (e) {
+      msg = l10n.notifTestError(e.toString());
+    }
+    messenger.showSnackBar(
+      SnackBar(content: Text(msg), duration: const Duration(seconds: 8)),
+    );
+  }
+
   String _wifiAutoSendStatusText(AppLocalizations l10n) {
     if (!_wifiAutoSendEnabled) return '';
     if (_wifiAutoSendSsid.isEmpty) return l10n.wifiAutoSendStatusAny;
@@ -625,6 +643,13 @@ class _SettingsPageState extends State<SettingsPage> {
               setState(() => _notifyOnFailure = v);
               if (v) await _ensureNotifPermission();
             },
+          ),
+          ListTile(
+            leading: const Icon(Icons.notification_add_outlined),
+            title: Text(l10n.notifTestButton),
+            subtitle: Text(l10n.notifTestSubtitle),
+            trailing: const Icon(Icons.send_outlined),
+            onTap: _testNotification,
           ),
           const Divider(height: 1),
 

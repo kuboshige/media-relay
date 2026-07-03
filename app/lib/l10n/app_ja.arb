@@ -943,6 +943,24 @@
   "notifPermGrant": "許可する",
   "@notifPermGrant": { "description": "Grant notification permission button" },
 
+  "notifTestButton": "テスト通知を送る",
+  "@notifTestButton": { "description": "Test notification button title" },
+
+  "notifTestSubtitle": "通知が表示されるか確認します",
+  "@notifTestSubtitle": { "description": "Test notification subtitle" },
+
+  "notifTestSent": "テスト通知を送信しました。数秒待っても表示されない場合は、端末の 設定→アプリ→MediaRelay→通知 を確認してください",
+  "@notifTestSent": { "description": "Snackbar when test notification sent" },
+
+  "notifTestDisabled": "通知がOSレベルで無効です。端末の 設定→アプリ→MediaRelay→通知 を開いて有効にしてください",
+  "@notifTestDisabled": { "description": "Snackbar when notifications disabled at OS level" },
+
+  "notifTestError": "通知の送信に失敗しました: {error}",
+  "@notifTestError": {
+    "description": "Snackbar when test notification throws",
+    "placeholders": { "error": { "type": "String" } }
+  },
+
   "bgIntervalLabel": "バックグラウンド確認の間隔",
   "@bgIntervalLabel": { "description": "Background check interval tile title" },
 

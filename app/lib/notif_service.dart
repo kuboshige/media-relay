@@ -100,12 +100,29 @@ class NotifService {
   static const _sendResultDetails = NotificationDetails(
     android: AndroidNotificationDetails(
       'send_result',
-      '送信完了',
-      channelDescription: '送信が完了したとき結果を表示します',
+      '送信結果',
+      channelDescription: '送信の成功・失敗をお知らせします',
       importance: Importance.defaultImportance,
       priority: Priority.defaultPriority,
     ),
   );
+
+  /// 通知が実際に表示できるかを確認するためのテスト通知。
+  /// 例外は握りつぶさず呼び出し側に投げる（原因を画面に出すため）。
+  /// 表示できたか（OSレベルで通知が有効か）を返す。
+  static Future<bool> showTest() async {
+    await init();
+    final android = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    final enabled = await android?.areNotificationsEnabled() ?? true;
+    await _plugin.show(
+      9999,
+      'MediaRelay テスト通知',
+      'これが見えれば通知は正常です',
+      _sendResultDetails,
+    );
+    return enabled;
+  }
 
   /// 設定と最終送信時刻にもとづいてリマインダーを再設定する。
   /// reminderDays が 0 以下ならオフ（予約をキャンセルするだけ）。
