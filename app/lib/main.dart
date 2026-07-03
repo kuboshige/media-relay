@@ -412,10 +412,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       ssid ??= await WifiMonitor.getCurrentSsid();
 
       final targetSsid = await AppSettings.wifiAutoSendSsid();
-      // 別のWi-Fiだと「判明した」場合のみスキップ。対象指定ありでも SSID が
-      // どうしても読めない場合は、送信先が自宅LANの固定IPで ping が通らなければ
-      // 何も起きないため、試行に任せる（pingでゲートされる）。
-      if (targetSsid != null && ssid != null && ssid != targetSsid) return;
+      // 対象Wi-Fi名が設定されている場合は、接続中のWi-Fiがそれと一致したときだけ送る。
+      // SSIDが読めない(null)場合も、別のWi-Fiに送ろうとしないよう安全側でスキップする。
+      if (targetSsid != null && ssid != targetSsid) return;
 
       // 送信直前に最新のメディアを取り込む（実行中に撮影した写真も対象に含める）。
       if (!mounted) return;

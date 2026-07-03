@@ -79,23 +79,21 @@ Future<void> _runBackgroundSend() async {
       .pingStatus()
       .timeout(const Duration(seconds: 8), onTimeout: () => null);
   if (status != 200) {
-    // 未送信があるのに送れなかった → 失敗を通知（設定で ON のとき）。
-    final type = status == 401 ? 'auth' : 'connection';
-    await AppSettings.setLastSendError(
-        type: type, serverName: server.name, totalCount: unsent.length);
-    await _notifyFailure(server.name, type);
+    // 認証エラー（接続はできているがトークン不一致）だけは通知する価値がある。
+    if (status == 401) {
+      await AppSettings.setLastSendError(
+          type: 'auth', serverName: server.name, totalCount: unsent.length);
+      await _notifyFailure(server.name, 'auth');
+    }
+    // 接続できない場合は「受信側のネットワークにいない／受信側がオフ」という
+    // 正常な待機状態。別のWi-Fiで無駄に「失敗」を通知しないよう静かに終わる。
     return;
   }
 
   final caps = await uploader
       .info()
       .timeout(const Duration(seconds: 10), onTimeout: () => null);
-  if (caps == null) {
-    await AppSettings.setLastSendError(
-        type: 'connection', serverName: server.name, totalCount: unsent.length);
-    await _notifyFailure(server.name, 'connection');
-    return;
-  }
+  if (caps == null) return; // ping は通ったが情報取得に失敗（一時的）。次回に任せる。
 
   final targets = unsent.take(50).toList();
   int done = 0, failed = 0;
