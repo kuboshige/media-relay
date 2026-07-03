@@ -173,14 +173,14 @@ class MainActivity : FlutterActivity() {
                 ConnectivityManager.NetworkCallback.FLAG_INCLUDE_LOCATION_INFO
             ) {
                 override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
-                    emitConnected(extractSsid(caps))
+                    handleCaps(caps)
                 }
                 override fun onLost(network: Network) = emitDisconnected()
             }
         } else {
             object : ConnectivityManager.NetworkCallback() {
                 override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
-                    emitConnected(extractSsid(caps))
+                    handleCaps(caps)
                 }
                 override fun onLost(network: Network) = emitDisconnected()
             }
@@ -192,6 +192,19 @@ class MainActivity : FlutterActivity() {
         } else {
             emitDisconnected()
         }
+    }
+
+    /**
+     * onCapabilitiesChanged から「接続」イベントを出すか判定する。
+     * Wi-Fi の切断途中にも onCapabilitiesChanged は呼ばれるため、
+     * インターネット到達性が検証済み(VALIDATED)のときだけ「接続」とみなす。
+     * これで「オフにした瞬間に誤って送信が発火する」問題を防ぐ。
+     */
+    private fun handleCaps(caps: NetworkCapabilities) {
+        val usable =
+            caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+        if (usable) emitConnected(extractSsid(caps))
     }
 
     /** Wi-Fi 接続イベントを Dart に送る（ssid は取得できなければ null）。 */

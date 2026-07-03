@@ -143,9 +143,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   int? _lastSyncMs;
   StreamSubscription<void>? _notifSendNowSub;
   StreamSubscription<WifiEvent>? _wifiSub;
-  // Wi-Fi トリガーが同一接続で連続起動しないよう、最後に送信した接続のキーを記録する。
-  // 切断イベントで null にリセットし、次の接続で再送できるようにする。
-  String? _lastWifiAutoSendKey;
+  // 自動送信が同時多重に走らないようにする実行中フラグ。
+  // 連続する Wi-Fi イベントや復帰イベントで二重送信しないためのガード。
+  bool _autoSendInFlight = false;
   // 最後の送信エラー（永続化）。null なら問題なし
   Map<String, dynamic>? _persistedError;
 
@@ -169,20 +169,19 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // 帰宅してアプリを前面に戻したときに、Wi-Fi接続を再チェックして自動送信する。
-    // ブロードキャストイベントに依存しない確実なトリガー。
+    // 帰宅してアプリを前面に戻したときに、新しい写真を取り込み、
+    // Wi-Fi接続を再チェックして自動送信する（イベントに依存しない確実な経路）。
     if (state == AppLifecycleState.resumed) {
-      _maybeWifiAutoSendOnResume();
+      _onAppResumed();
     }
   }
 
-  Future<void> _maybeWifiAutoSendOnResume() async {
+  Future<void> _onAppResumed() async {
     if (_loading || _status != null) return;
-    final enabled = await AppSettings.wifiAutoSendEnabled();
-    if (!enabled) return;
-    final ssid = await WifiMonitor.getCurrentSsid();
+    // アプリ実行中に撮影した写真が一覧に出ない問題への対策。復帰時に必ず再スキャン。
+    await _reloadMedia();
     if (!mounted) return;
-    _onWifiEvent(WifiEvent(connected: true, ssid: ssid));
+    await _tryAutoSend();
   }
 
   Future<void> _init() async {
@@ -220,11 +219,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     // startupAction が実行されなかった場合のみ Wi-Fi トリガーをチェック
     if (startupAction == AppSettings.startupActionNone) {
-      final wifiEnabled = await AppSettings.wifiAutoSendEnabled();
-      if (wifiEnabled) {
-        final ssid = await WifiMonitor.getCurrentSsid();
-        _onWifiEvent(WifiEvent(connected: true, ssid: ssid));
-      }
+      await _tryAutoSend();
     }
   }
 
@@ -392,49 +387,51 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     await _send(targets, silent: true);
   }
 
-  /// Wi-Fi 接続／切断イベントのハンドラ。
-  /// 接続先が設定済みの Wi-Fi 名と一致したとき未送信ファイルを自動送信する。
-  /// 自動送信では端末からの削除は一切行わない（削除は手動操作のときだけ）。
+  /// Wi-Fi 接続／切断イベントのハンドラ。接続イベントで自動送信を試みる。
   Future<void> _onWifiEvent(WifiEvent e) async {
-    if (!mounted) return;
-    final enabled = await AppSettings.wifiAutoSendEnabled();
-    if (!enabled) return;
+    if (!e.connected) return; // 切断では送らない
+    await _tryAutoSend(ssidHint: e.ssid);
+  }
 
-    // 切断: 次回接続で再送できるようキーをリセットする。送信はしない。
-    if (!e.connected) {
-      _lastWifiAutoSendKey = null;
-      return;
+  /// 自動送信の共通処理。Wi-Fiイベント・起動時・アプリ復帰から呼ばれる。
+  /// 対象Wi-Fiに接続中で未送信ファイルがあれば送信する。
+  /// 二重送信は実行中フラグで防ぎ、重複再送は送信済み管理(SentStore)で防ぐ。
+  /// 自動送信では端末からの削除は一切行わない（削除は手動操作のときだけ）。
+  Future<void> _tryAutoSend({String? ssidHint}) async {
+    // 実行中フラグは最初の await より前に同期的に立て、多重起動を防ぐ。
+    if (_autoSendInFlight || _loading || _status != null) return;
+    _autoSendInFlight = true;
+    try {
+      if (!mounted) return;
+      final enabled = await AppSettings.wifiAutoSendEnabled();
+      if (!enabled) return;
+
+      // イベント経由の SSID が取れない端末があるため、null なら現在SSIDで補完する
+      // （getCurrentSsid は WifiManager フォールバックを持ち、こちらは読める端末が多い）。
+      var ssid = ssidHint;
+      ssid ??= await WifiMonitor.getCurrentSsid();
+
+      final targetSsid = await AppSettings.wifiAutoSendSsid();
+      // 別のWi-Fiだと「判明した」場合のみスキップ。対象指定ありでも SSID が
+      // どうしても読めない場合は、送信先が自宅LANの固定IPで ping が通らなければ
+      // 何も起きないため、試行に任せる（pingでゲートされる）。
+      if (targetSsid != null && ssid != null && ssid != targetSsid) return;
+
+      // 送信直前に最新のメディアを取り込む（実行中に撮影した写真も対象に含める）。
+      if (!mounted) return;
+      await _reloadMedia();
+      if (!mounted || _status != null) return;
+
+      final targets = _all
+          .where((m) => !_sentIds.contains(m.id))
+          .toList()
+          .reversed
+          .toList();
+      if (targets.isEmpty) return;
+      await _send(targets, silent: true);
+    } finally {
+      _autoSendInFlight = false;
     }
-
-    // イベント経由の SSID が取れない端末があるため、null なら現在SSIDで補完する
-    // （getCurrentSsid は WifiManager フォールバックを持ち、こちらは読める端末が多い）。
-    var ssid = e.ssid;
-    ssid ??= await WifiMonitor.getCurrentSsid();
-    if (!mounted) return;
-
-    final targetSsid = await AppSettings.wifiAutoSendSsid();
-    // 別のWi-Fiだと「判明した」場合のみスキップ。
-    // 対象指定ありでSSIDがどうしても読めない場合は、送信先が自宅LANの固定IPで
-    // ping が通らなければ何も起きないため、試行に任せる（pingでゲートされる）。
-    if (targetSsid != null && ssid != null && ssid != targetSsid) return;
-
-    // 送信条件が整っていない（ロード中/送信中）なら、キーを立てずに戻る。
-    // ここでキーを立てると、後続の本来の発火が「重複」で消えてしまう（起動直後の不具合）。
-    if (_status != null || _loading) return;
-
-    // 同一接続で連続送信しない。切断（上でリセット）→再接続で再度送信できる。
-    final key = ssid ?? '__wifi__';
-    if (_lastWifiAutoSendKey == key) return;
-
-    final targets = _all
-        .where((m) => !_sentIds.contains(m.id))
-        .toList()
-        .reversed
-        .toList();
-    if (targets.isEmpty) return;
-
-    _lastWifiAutoSendKey = key;
-    await _send(targets, silent: true);
   }
 
   Future<void> _sendAllUnsent() async {
