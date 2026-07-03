@@ -1,0 +1,12 @@
+<!-- 通知バー用のモノクロ小アイコン（白抜き・アルファのみ有効）。
+     ステータスバーの通知アイコンは単色で描画されるため、白塗りのベクターにする。
+     モチーフはアプリと同じ「中継（送る）」を表す矢印。 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M2,21L23,12L2,3V10L17,12L2,14V21Z" />
+</vector>

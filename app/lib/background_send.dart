@@ -241,7 +241,7 @@ Future<void> _show(int id, String title, String body) async {
   try {
     final plugin = FlutterLocalNotificationsPlugin();
     await plugin.initialize(const InitializationSettings(
-      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+      android: AndroidInitializationSettings('@drawable/ic_stat_mediarelay'),
     ));
     await plugin.show(
       id,

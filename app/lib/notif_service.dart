@@ -36,7 +36,7 @@ class NotifService {
   static Future<void> init() async {
     if (_inited) return;
     tzdata.initializeTimeZones();
-    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const android = AndroidInitializationSettings('@drawable/ic_stat_mediarelay');
     await _plugin.initialize(
       const InitializationSettings(android: android),
       onDidReceiveNotificationResponse: _handleResponse,
