@@ -58,12 +58,21 @@ class NotifService {
     }
   }
 
-  /// 通知許可を求める（Android 13+）。
-  static Future<void> requestPermission() async {
+  /// 通知許可を求める（Android 13+）。許可されたか（結果）を返す。
+  static Future<bool> requestPermission() async {
     await init();
     final android = _plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
-    await android?.requestNotificationsPermission();
+    final granted = await android?.requestNotificationsPermission();
+    return granted ?? true;
+  }
+
+  /// OS レベルで通知が有効か（Android 13+ の権限や、チャンネル無効化も反映）。
+  static Future<bool> areNotificationsEnabled() async {
+    await init();
+    final android = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    return await android?.areNotificationsEnabled() ?? true;
   }
 
   static Future<NotificationDetails> _reminderDetails() async {

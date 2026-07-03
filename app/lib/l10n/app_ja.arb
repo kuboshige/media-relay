@@ -934,6 +934,15 @@
   "notifyOnFailureSubtitle": "送信できなかったときに理由を通知",
   "@notifyOnFailureSubtitle": { "description": "Subtitle for failure notification toggle" },
 
+  "notifPermWarnTitle": "通知が許可されていません",
+  "@notifPermWarnTitle": { "description": "Notification permission warning title" },
+
+  "notifPermWarnBody": "このままでは送信結果の通知が表示されません。「許可する」を押して通知を有効にしてください。",
+  "@notifPermWarnBody": { "description": "Notification permission warning body" },
+
+  "notifPermGrant": "許可する",
+  "@notifPermGrant": { "description": "Grant notification permission button" },
+
   "bgIntervalLabel": "バックグラウンド確認の間隔",
   "@bgIntervalLabel": { "description": "Background check interval tile title" },
 

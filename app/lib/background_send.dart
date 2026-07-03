@@ -251,8 +251,9 @@ Future<void> _show(int id, String title, String body) async {
         android: AndroidNotificationDetails(
           'send_result',
           '送信結果',
-          importance: Importance.low,
-          priority: Priority.low,
+          channelDescription: '送信の成功・失敗をお知らせします',
+          importance: Importance.defaultImportance,
+          priority: Priority.defaultPriority,
         ),
       ),
     );

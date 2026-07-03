@@ -27,6 +27,7 @@ class _SettingsPageState extends State<SettingsPage> {
   int _autoStopMinutes = AppSettings.defaultAutoStopMinutes;
   bool _notifyOnSuccess = true;
   bool _notifyOnFailure = true;
+  bool _notifEnabled = true;
   bool _reminderSendNow = true;
   bool _wifiAutoSendEnabled = false;
   int _bgIntervalMinutes = AppSettings.defaultBgIntervalMinutes;
@@ -50,6 +51,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _autoStopMinutes = await AppSettings.receiverAutoStopMinutes();
     _notifyOnSuccess = await AppSettings.notifyOnSuccess();
     _notifyOnFailure = await AppSettings.notifyOnFailure();
+    _notifEnabled = await NotifService.areNotificationsEnabled();
     _reminderSendNow = await AppSettings.reminderSendNow();
     _wifiAutoSendEnabled = await AppSettings.wifiAutoSendEnabled();
     _bgIntervalMinutes = await AppSettings.bgIntervalMinutes();
@@ -207,6 +209,25 @@ class _SettingsPageState extends State<SettingsPage> {
 
   String _bgIntervalLabel(int minutes, AppLocalizations l10n) =>
       minutes < 60 ? l10n.intervalMinutes(minutes) : l10n.intervalHours(minutes ~/ 60);
+
+  /// 通知権限をリクエストする。恒久拒否などで要求ダイアログが出ない場合は
+  /// アプリの設定画面を開いて手動で許可してもらう。
+  Future<void> _fixNotifPermission() async {
+    final granted = await NotifService.requestPermission();
+    if (!granted) {
+      await openAppSettings();
+    }
+    final enabled = await NotifService.areNotificationsEnabled();
+    if (mounted) setState(() => _notifEnabled = enabled);
+  }
+
+  /// 通知トグルをオンにしたとき、まだ許可されていなければ権限を要求する。
+  Future<void> _ensureNotifPermission() async {
+    if (await NotifService.areNotificationsEnabled()) return;
+    await NotifService.requestPermission();
+    final enabled = await NotifService.areNotificationsEnabled();
+    if (mounted) setState(() => _notifEnabled = enabled);
+  }
 
   String _wifiAutoSendStatusText(AppLocalizations l10n) {
     if (!_wifiAutoSendEnabled) return '';
@@ -557,6 +578,20 @@ class _SettingsPageState extends State<SettingsPage> {
 
           // ━━━━ Notifications ━━━━
           _sectionHeader(l10n.settingsSectionNotifications),
+          if (!_notifEnabled)
+            Container(
+              color: Colors.orange.withValues(alpha: 0.12),
+              child: ListTile(
+                leading: Icon(Icons.notifications_off,
+                    color: Colors.orange.shade800),
+                title: Text(l10n.notifPermWarnTitle),
+                subtitle: Text(l10n.notifPermWarnBody),
+                trailing: FilledButton(
+                  onPressed: _fixNotifPermission,
+                  child: Text(l10n.notifPermGrant),
+                ),
+              ),
+            ),
           _reminderTile(l10n),
           SwitchListTile(
             secondary: const Icon(Icons.notifications_outlined),
@@ -577,6 +612,7 @@ class _SettingsPageState extends State<SettingsPage> {
             onChanged: (v) async {
               await AppSettings.setNotifyOnSuccess(v);
               setState(() => _notifyOnSuccess = v);
+              if (v) await _ensureNotifPermission();
             },
           ),
           SwitchListTile(
@@ -587,6 +623,7 @@ class _SettingsPageState extends State<SettingsPage> {
             onChanged: (v) async {
               await AppSettings.setNotifyOnFailure(v);
               setState(() => _notifyOnFailure = v);
+              if (v) await _ensureNotifPermission();
             },
           ),
           const Divider(height: 1),
